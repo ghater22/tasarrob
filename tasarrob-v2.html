@@ -1792,6 +1792,14 @@ async function loadConfigFromDB(){
   } catch(e){ console.error('loadConfig error:',e); }
 }
 
+async function loadNotifsFromDB(){
+  try {
+    const doc = await db.collection('config').doc('notifs').get();
+    if(doc.exists && doc.data().list) NOTIFS = doc.data().list;
+    else NOTIFS = [];
+  } catch(e){ console.error('loadNotifs error:',e); }
+}
+
 // ── FIRESTORE STUDENTS ───────────────────────────────────────
 async function loadStudentsFromDB(){
   const snap = await db.collection('students').get();
@@ -1876,8 +1884,9 @@ async function doLogin(){
 
   applySession(acc.name||u);
 
-  // Load config & students from Firestore
+  // Load config, notifs & students from Firestore
   await loadConfigFromDB();
+  await loadNotifsFromDB();
   await loadStudentsFromDB();
   filteredStudents=allStudents.filter(s=>s.status===curFilter);
   curPage=1;
@@ -2586,15 +2595,17 @@ function rndrNotifs(){
   document.getElementById('nb2').textContent=u;
   const nd=document.getElementById('ndot');nd.style.display=u?'block':'none';
   syncBottomNav(document.querySelector('.view.active')?.id?.replace('view-','')||'dashboard');
-  document.getElementById('notifList').innerHTML=NOTIFS.map((n,i)=>`
+  document.getElementById('notifList').innerHTML=NOTIFS.length?NOTIFS.map((n,i)=>`
     <div class="nc ${n.unread?'unread':''}" onclick="readN(this,${i})">
       <div class="nico ${n.cls}"><i class="fas ${n.icon}"></i></div>
       <div class="nb"><div class="nttl">${n.title}</div><div class="ndesc">${n.desc}</div><div class="ntime"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>${n.time}</div></div>
       ${n.unread?'<div class="udot"></div>':''}
-    </div>`).join('');
+      <button onclick="event.stopPropagation();delNotif(${i})" style="margin-right:auto;border:none;background:none;cursor:pointer;color:var(--muted);padding:4px 6px;border-radius:6px;font-size:.8rem" title="حذف"><i class="fas fa-trash"></i></button>
+    </div>`).join(''):`<div style="text-align:center;padding:40px;color:var(--muted)">لا توجد إشعارات</div>`;
 }
-function readN(el,i){NOTIFS[i].unread=false;el.classList.remove('unread');el.querySelector('.udot')?.remove();rndrNotifs();}
-function markRead(){NOTIFS.forEach(n=>n.unread=false);rndrNotifs();toast('success','تم','تحديد الكل كمقروء');}
+function readN(el,i){NOTIFS[i].unread=false;el.classList.remove('unread');el.querySelector('.udot')?.remove();saveNotifsToDB();rndrNotifs();}
+function markRead(){NOTIFS.forEach(n=>n.unread=false);saveNotifsToDB();rndrNotifs();toast('success','تم','تحديد الكل كمقروء');}
+function delNotif(i){NOTIFS.splice(i,1);saveNotifsToDB();rndrNotifs();}
 function saveNotif(){
   if(!IS_ADMIN()){toast('warn','صلاحية','فقط المسؤول');return;}
   const title=document.getElementById('nTtl').value.trim();
@@ -2603,9 +2614,13 @@ function saveNotif(){
   if(!title){toast('error','خطأ','أدخل عنواناً');return;}
   const im={red:'fa-triangle-exclamation',amber:'fa-bell',teal:'fa-info-circle',green:'fa-circle-check'};
   NOTIFS.unshift({cls:type,icon:im[type],title,desc:desc||'تنبيه جديد',time:'الآن',unread:true});
+  saveNotifsToDB();
   closeM('notifModal');rndrNotifs();
   document.getElementById('nTtl').value='';document.getElementById('nDesc').value='';
   toast('success','تم الإرسال','تم إضافة التنبيه');
+}
+function saveNotifsToDB(){
+  db.collection('config').doc('notifs').set({list:NOTIFS}).catch(e=>console.error('saveNotifs error:',e));
 }
 
 // ── SETTINGS ─────────────────────────────────────────────────
@@ -3036,6 +3051,7 @@ window.addEventListener('load',()=>{
         S.role=sess.role; S.name=sess.name; S.trainerSubject=sess.subject||''; S.userId=sess.userId||'admin';
         applySession(sess.name);
         await loadConfigFromDB();
+        await loadNotifsFromDB();
         await loadStudentsFromDB();
         filteredStudents=allStudents.filter(s=>s.status===curFilter);
         curPage=1;
