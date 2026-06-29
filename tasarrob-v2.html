@@ -1775,22 +1775,11 @@ function genStudents(){
 
 // ── FIRESTORE STUDENTS ───────────────────────────────────────
 async function loadStudentsFromDB(){
-  try {
-    const snap = await db.collection('students').get();
-    if(snap.empty){
-      // أول مرة: احفظ البيانات التجريبية في Firestore
-      allStudents = genStudents();
-      const batch = db.batch();
-      allStudents.forEach(s=>{
-        batch.set(db.collection('students').doc(s.id), s);
-      });
-      await batch.commit();
-    } else {
-      allStudents = snap.docs.map(d=>({...d.data(), id:d.id}));
-    }
-  } catch(e){
-    console.error('loadStudentsFromDB error:', e);
-    allStudents = genStudents();
+  const snap = await db.collection('students').get();
+  if(snap.empty){
+    allStudents = [];
+  } else {
+    allStudents = snap.docs.map(d=>({...d.data(), id:d.id}));
   }
 }
 
