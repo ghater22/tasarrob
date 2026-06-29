@@ -1773,6 +1773,25 @@ function genStudents(){
   });
 }
 
+// ── FIRESTORE CONFIG (DEPTS / SUBJECTS / TRAINERS) ───────────
+function saveConfigToDB(){
+  db.collection('config').doc('settings').set({
+    depts: DEPTS, subjects: SUBJECTS, trainers: TRAINERS
+  }).catch(e=>console.error('saveConfig error:',e));
+}
+
+async function loadConfigFromDB(){
+  try {
+    const doc = await db.collection('config').doc('settings').get();
+    if(doc.exists){
+      const d = doc.data();
+      if(d.depts   && d.depts.length)   DEPTS    = d.depts;
+      if(d.subjects && d.subjects.length) SUBJECTS = d.subjects;
+      if(d.trainers && d.trainers.length) TRAINERS = d.trainers;
+    }
+  } catch(e){ console.error('loadConfig error:',e); }
+}
+
 // ── FIRESTORE STUDENTS ───────────────────────────────────────
 async function loadStudentsFromDB(){
   const snap = await db.collection('students').get();
@@ -1857,7 +1876,8 @@ async function doLogin(){
 
   applySession(acc.name||u);
 
-  // Load students from Firestore
+  // Load config & students from Firestore
+  await loadConfigFromDB();
   await loadStudentsFromDB();
   filteredStudents=allStudents.filter(s=>s.status===curFilter);
   curPage=1;
@@ -2452,6 +2472,7 @@ function delMg(type,idx){
   const name=L[type][idx].name;
   if(!confirm(`حذف: ${name}؟`))return;
   L[type].splice(idx,1); rndrAllMgmt(); updKPIs(); rndrDProg();
+  saveConfigToDB();
   toast('success','تم الحذف',`تم حذف "${name}"`);
 }
 function openMg(type){
@@ -2480,7 +2501,7 @@ function saveMg(){
     rndrDL(); syncFilters(); updKPIs();
   }else if(curMgType==='subject'){
     const dept=document.getElementById('mg_dept')?.value||'';
-    const icon=document.getElementById('mg_icon')?.value||'fas fa-book'; // icon key
+    const icon=document.getElementById('mg_icon')?.value||'fas fa-book';
     const dObj=DEPTS.find(d=>d.name===dept);
     SUBJECTS.push({id:'s'+Date.now(),name,dept,icon,color:dObj?.color||'#3B82F6'});
     rndrSL();
@@ -2491,6 +2512,7 @@ function saveMg(){
     TRAINERS.push({id:'t'+Date.now(),name,dept,subject,spec});
     rndrTL();
   }
+  saveConfigToDB();
   closeM('mgModal'); toast('success','تمت الإضافة',`تم إضافة "${name}" بنجاح`);
 }
 
@@ -3013,6 +3035,7 @@ window.addEventListener('load',()=>{
         const sess = JSON.parse(saved);
         S.role=sess.role; S.name=sess.name; S.trainerSubject=sess.subject||''; S.userId=sess.userId||'admin';
         applySession(sess.name);
+        await loadConfigFromDB();
         await loadStudentsFromDB();
         filteredStudents=allStudents.filter(s=>s.status===curFilter);
         curPage=1;
