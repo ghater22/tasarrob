@@ -1414,7 +1414,7 @@ body.pwa-banner-visible .fab{bottom:calc(152px + env(safe-area-inset-bottom))}
       </div>
       <div class="ss" id="st-sys" style="display:none">
         <div class="ss-ttl"><span class="svg-icon"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg></span>إعدادات النظام</div>
-        <div class="trow"><div><div class="tl">حد الغيابات</div><div class="td">العدد الأقصى قبل استهداف الطالب</div></div><input type="number" class="fc2" id="maxAbsIn" value="12" style="width:70px;text-align:center" onchange="setMax(this.value)"></div>
+        <div class="trow"><div><div class="tl">حد الغيابات</div><div class="td">العدد الأقصى قبل استهداف الطالب</div></div><input type="number" class="fc2" id="maxAbsIn" value="4" style="width:70px;text-align:center" onchange="setMax(this.value)"></div>
         <div class="trow"><div><div class="tl">اسم الكلية</div></div><input type="text" class="fc2" id="collN" value="الكلية التقنية بشرورة" style="width:210px"></div>
         <div class="trow"><div><div class="tl">السنة الدراسية</div></div><input type="text" class="fc2" id="acYr" value="2025 / 2026" style="width:130px"></div>
         <button class="btn btn-teal" style="margin-top:13px" onclick="saveSys()"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></span> حفظ الإعدادات</button>
@@ -1702,7 +1702,7 @@ function calcRisk(s){
 }
 
 // ── CONFIG ──────────────────────────────────────────────────
-const CFG = { maxAbs:12, college:'الكلية التقنية بشرورة', year:'2025/2026' };
+const CFG = { maxAbs:4, college:'الكلية التقنية بشرورة', year:'2025/2026' };
 let absCount=13, allStudents=[], filteredStudents=[], curFilter='deprived', curPage=1;
 const PAGE=10;
 let chartsInited=false, rptInited=false, curIdx=-1, curMgType='dept';
