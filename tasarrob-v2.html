@@ -1863,24 +1863,32 @@ async function doLogin(){
 
   // Set session
   S.role=acc.role; S.name=acc.name; S.trainerSubject=acc.subject||''; S.userId=acc.id||'admin';
+  // حفظ الجلسة لتستمر عند تحديث الصفحة
+  sessionStorage.setItem('tasarrob_session', JSON.stringify({role:acc.role,name:acc.name,subject:acc.subject||'',userId:acc.id||'admin',avatar:(acc.name||u)[0]}));
 
-  const RM={admin:['مدير النظام','مسؤول كامل'],trainer:['مدرب','مدرب تدريبي'],coord:['منسق','منسق إرشادي']};
-  const r=RM[S.role];
-  ['sbAv','stAv'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(acc.name||u)[0];});
-  ['sbName','stDN'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=r[0];});
-  ['sbRole','stDR'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=r[1];});
-  document.getElementById('sbBadge').textContent={admin:'مدير',trainer:'مدرب',coord:'منسق'}[S.role];
-  document.getElementById('login-page').style.display='none';
-  document.getElementById('app').classList.add('on');
+  applySession(acc.name||u);
 
   // Load students from Firestore
   await loadStudentsFromDB();
   filteredStudents=allStudents.filter(s=>s.status===curFilter);
   curPage=1;
   applyRoleUI(); initAll();
-  toast('success','مرحباً',`أهلاً ${acc.name||r[0]} — تسرب`);
+  toast('success','مرحباً',`أهلاً ${acc.name} — تسرب`);
 }
+
+function applySession(uDisplay){
+  const RM={admin:['مدير النظام','مسؤول كامل'],trainer:['مدرب','مدرب تدريبي'],coord:['منسق','منسق إرشادي']};
+  const r=RM[S.role];
+  ['sbAv','stAv'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=(S.name||uDisplay||'م')[0];});
+  ['sbName','stDN'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=r[0];});
+  ['sbRole','stDR'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=r[1];});
+  document.getElementById('sbBadge').textContent={admin:'مدير',trainer:'مدرب',coord:'منسق'}[S.role];
+  document.getElementById('login-page').style.display='none';
+  document.getElementById('app').classList.add('on');
+}
+
 function doLogout(){
+  sessionStorage.removeItem('tasarrob_session');
   document.getElementById('app').classList.remove('on');
   document.getElementById('login-page').style.display='flex';
   chartsInited=false; rptInited=false;
@@ -2272,17 +2280,21 @@ function viewSt(idx){
   document.getElementById('veBtn').onclick=canMgr&&!IS_COORD()?()=>{closeM('viewModal');editSt(idx);}:null;
   openModal('viewModal');
 }
-function delSt(idx){
+async function delSt(idx){
   if(IS_COORD()){toast('warn','صلاحية','أنت في وضع اطلاع فقط');return;}
   const s=allStudents[idx];
   if(!CAN_EDIT(s)){toast('warn','صلاحية','لا يمكنك حذف طالب من مادة أخرى');return;}
   if(!confirm(`حذف الطالب: ${s.name}؟`))return;
-  allStudents.splice(idx,1);
-  db.collection('students').doc(s.id).delete().catch(e=>console.error('delSt FB error:',e));
-  applyF();
-  document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
-  updKPIs();
-  toast('success','تم الحذف',`حُذف سجل: ${s.name}`);
+  try{
+    await db.collection('students').doc(s.id).delete();
+    allStudents.splice(idx,1);
+    applyF();
+    document.getElementById('nb0').textContent=allStudents.filter(x=>x.status==='deprived').length;
+    updKPIs();
+    toast('success','تم الحذف',`حُذف سجل: ${s.name}`);
+  } catch(e){
+    toast('error','خطأ','فشل الحذف — تحقق من الاتصال');
+  }
 }
 function doAlert(){const s=curIdx>=0?allStudents[curIdx]:null;toast('success','تنبيه',`تم إرسال تنبيه بشأن ${s?.name||'الطالب'}`);closeM('viewModal');}
 
@@ -3001,11 +3013,28 @@ function deptIconSVG(faClass) {
   return `<span class="svg-icon">${svg}</span>`;
 }
 
-// ── LOADER → LOGIN ────────────────────────────────────────────
+// ── LOADER → LOGIN (مع استعادة الجلسة) ───────────────────────
 window.addEventListener('load',()=>{
-  setTimeout(()=>{
+  setTimeout(async ()=>{
     document.getElementById('loader').classList.add('out');
-    document.getElementById('login-page').style.display='flex';
+    // هل توجد جلسة محفوظة؟
+    const saved = sessionStorage.getItem('tasarrob_session');
+    if(saved){
+      try{
+        const sess = JSON.parse(saved);
+        S.role=sess.role; S.name=sess.name; S.trainerSubject=sess.subject||''; S.userId=sess.userId||'admin';
+        applySession(sess.name);
+        await loadStudentsFromDB();
+        filteredStudents=allStudents.filter(s=>s.status===curFilter);
+        curPage=1;
+        applyRoleUI(); initAll();
+      } catch(e){
+        sessionStorage.removeItem('tasarrob_session');
+        document.getElementById('login-page').style.display='flex';
+      }
+    } else {
+      document.getElementById('login-page').style.display='flex';
+    }
   },1700);
 });
 
