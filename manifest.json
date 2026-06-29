@@ -1,0 +1,52 @@
+{
+  "name": "تسرب | نرصد اليوم لننجح غداً",
+  "short_name": "تسرب",
+  "description": "نظام رصد وإدارة حالات التسرب التدريبي — الكلية التقنية",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./tasarrob-v2.html?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0D1B2A",
+  "background_color": "#0D1B2A",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "الطلاب المحرومون",
+      "short_name": "المحرومون",
+      "description": "عرض قائمة الطلاب المحرومين",
+      "url": "./tasarrob-v2.html?view=students&filter=deprived",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    },
+    {
+      "name": "التقارير",
+      "short_name": "التقارير",
+      "description": "عرض التقارير والإحصائيات",
+      "url": "./tasarrob-v2.html?view=reports",
+      "icons": [{ "src": "icon.svg", "sizes": "any" }]
+    }
+  ],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

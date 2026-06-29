@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#0D1B2A"/>
+  <rect x="60" y="60" width="392" height="392" rx="64" fill="#162336"/>
+  <!-- Road lines -->
+  <path d="M256 440 L170 320 L342 320 Z" fill="none" stroke="#00B5B5" stroke-width="6" stroke-linejoin="round" opacity="0.25"/>
+  <!-- Chart bars -->
+  <rect x="120" y="240" width="44" height="120" rx="6" fill="#00B5B5" opacity="0.35"/>
+  <rect x="180" y="190" width="44" height="170" rx="6" fill="#00B5B5" opacity="0.55"/>
+  <rect x="240" y="150" width="44" height="210" rx="6" fill="#00B5B5" opacity="0.75"/>
+  <rect x="300" y="200" width="44" height="160" rx="6" fill="#00B5B5" opacity="0.55"/>
+  <rect x="360" y="160" width="44" height="200" rx="6" fill="#00B5B5" opacity="0.35"/>
+  <!-- Arabic letter ت (ta) stylized -->
+  <text x="256" y="200" font-family="Tajawal, Arial, sans-serif" font-size="130" font-weight="900" fill="#00B5B5" text-anchor="middle" dominant-baseline="middle">ت</text>
+  <!-- Glow dot on teal -->
+  <circle cx="256" cy="370" r="12" fill="#00B5B5"/>
+  <circle cx="218" cy="370" r="8" fill="#00B5B5" opacity="0.6"/>
+  <circle cx="294" cy="370" r="8" fill="#00B5B5" opacity="0.6"/>
+</svg>
