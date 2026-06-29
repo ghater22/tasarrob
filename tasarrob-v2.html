@@ -1461,21 +1461,6 @@ body.pwa-banner-visible .fab{bottom:calc(152px + env(safe-area-inset-bottom))}
 
 </div><!-- /app -->
 
-<!-- UNDO BAR -->
-<div id="undoBar" role="alert" aria-live="assertive">
-  <div class="undo-ico">
-    <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
-  </div>
-  <div class="undo-txt">
-    <div class="undo-name" id="undoName">—</div>
-    <div class="undo-sub">سيُحذف نهائياً خلال <span id="undoSec">5</span> ثوانٍ</div>
-  </div>
-  <button class="undo-btn" onclick="undoDelete()">↩ تراجع</button>
-  <button class="undo-dismiss" onclick="commitDelete()" title="حذف الآن">
-    <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-  </button>
-  <div class="undo-progress" id="undoProgress"></div>
-</div>
 
 <!-- PWA: OFFLINE INDICATOR -->
 <div id="pwa-offline" role="status" aria-live="polite">
@@ -2287,80 +2272,17 @@ function viewSt(idx){
   document.getElementById('veBtn').onclick=canMgr&&!IS_COORD()?()=>{closeM('viewModal');editSt(idx);}:null;
   openModal('viewModal');
 }
-/* ── UNDO DELETE SYSTEM ── */
-let _undoState=null; // {student, idx, timer, secTimer, startTime}
-
 function delSt(idx){
   if(IS_COORD()){toast('warn','صلاحية','أنت في وضع اطلاع فقط');return;}
   const s=allStudents[idx];
   if(!CAN_EDIT(s)){toast('warn','صلاحية','لا يمكنك حذف طالب من مادة أخرى');return;}
-  if(_undoState) _finalizeDelete();
-  _undoState={student:s, idx, startTime:Date.now()};
-  allStudents.splice(idx,1); applyF();
-  document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
-  updKPIs();
-  _showUndoBar(s.name);
-}
-
-function _showUndoBar(name){
-  const bar=document.getElementById('undoBar');
-  const prog=document.getElementById('undoProgress');
-  const secEl=document.getElementById('undoSec');
-  document.getElementById('undoName').textContent=name;
-  secEl.textContent='5';
-  // شريط التقدم: ينكمش من 100% → 0% في 5 ثوانٍ
-  prog.style.transition='none';
-  prog.style.width='100%';
-  bar.classList.add('show');
-  // ابدأ انيميشن التقدم بعد frame
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    prog.style.transition='width 5s linear';
-    prog.style.width='0%';
-  }));
-  // عداد الثواني
-  let sec=5;
-  _undoState.secTimer=setInterval(()=>{
-    sec--;
-    if(sec>0){ secEl.textContent=sec; }
-    else{ clearInterval(_undoState.secTimer); }
-  },1000);
-  // مؤقت الإنهاء
-  _undoState.timer=setTimeout(()=>_finalizeDelete(),5000);
-}
-
-function _hideUndoBar(){
-  const bar=document.getElementById('undoBar');
-  bar.classList.remove('show');
-  if(_undoState?.secTimer) clearInterval(_undoState.secTimer);
-  if(_undoState?.timer)    clearTimeout(_undoState.timer);
-}
-
-function undoDelete(){
-  if(!_undoState)return;
-  const {student, idx}=_undoState;
-  _hideUndoBar();
-  // أعِد إدراج الطالب في مكانه الأصلي
-  allStudents.splice(idx,0,student);
-  _undoState=null;
+  if(!confirm(`حذف الطالب: ${s.name}؟`))return;
+  allStudents.splice(idx,1);
+  db.collection('students').doc(s.id).delete().catch(e=>console.error('delSt FB error:',e));
   applyF();
   document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
   updKPIs();
-  toast('info','تم التراجع',`استُعيد سجل: ${student.name}`);
-}
-
-function commitDelete(){
-  _finalizeDelete();
-}
-
-function _finalizeDelete(){
-  if(!_undoState)return;
-  const {student, name: nm} = _undoState;
-  const sName = student.name;
-  _hideUndoBar();
-  // احذف من Firestore نهائياً
-  db.collection('students').doc(student.id).delete().catch(e=>console.error('delSt FB error:',e));
-  _undoState=null;
-  toast('success','تم الحذف',`حُذف سجل: ${sName}`);
+  toast('success','تم الحذف',`حُذف سجل: ${s.name}`);
 }
 function doAlert(){const s=curIdx>=0?allStudents[curIdx]:null;toast('success','تنبيه',`تم إرسال تنبيه بشأن ${s?.name||'الطالب'}`);closeM('viewModal');}
 
