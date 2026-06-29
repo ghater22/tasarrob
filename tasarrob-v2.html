@@ -38,6 +38,8 @@
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
 <style>
 /* ═══════════════════════════════════════════════════════════
@@ -1640,15 +1642,20 @@ body.pwa-banner-visible .fab{bottom:calc(152px + env(safe-area-inset-bottom))}
    deprived · resolved
 ═══════════════════════════════════════════════════════════ */
 
-// ── USERS DATABASE & SESSION ─────────────────────────────────
-// Built-in admin account (cannot be deleted/edited from UI)
-const ADMIN_ACCOUNT = { username:'ghater22@gmail.com', password:'0536860753', role:'admin', name:'مدير النظام', subject:'', phone:'0536860753', notes:'' };
+// ── FIREBASE INIT ─────────────────────────────────────────────
+firebase.initializeApp({
+  apiKey: "AIzaSyAOIU62htYvCkjzrxkm1spRwiut_T-EJ-w",
+  authDomain: "tasarrob-55cb3.firebaseapp.com",
+  projectId: "tasarrob-55cb3",
+  storageBucket: "tasarrob-55cb3.firebasestorage.app",
+  messagingSenderId: "402196296007",
+  appId: "1:402196296007:web:aa92f4efd73f4a31449c62"
+});
+const db = firebase.firestore();
 
-// User accounts created by admin (trainer / coord only)
-let USERS = [
-  { id:'u1', username:'trainer1', password:'T@1234', role:'trainer', name:'م. سعيد القحطاني', subject:'الشبكات المتقدمة', phone:'0501234567', notes:'قسم تقنية المعلومات' },
-  { id:'u2', username:'coord1',   password:'C@1234', role:'coord',   name:'منسق الإرشاد',     subject:'',                  phone:'0507654321', notes:'وحدة الخدمات الإرشادية' },
-];
+// ── USERS DATABASE & SESSION ─────────────────────────────────
+const ADMIN_ACCOUNT = { username:'ghater22@gmail.com', password:'0536860753', role:'admin', name:'مدير النظام', subject:'', phone:'0536860753', notes:'' };
+let USERS = [];
 
 const S = { role:'admin', name:'', trainerSubject:'', userId:'' };
 const IS_ADMIN   = () => S.role==='admin';
@@ -1656,10 +1663,18 @@ const IS_TRAINER = () => S.role==='trainer';
 const IS_COORD   = () => S.role==='coord';
 const CAN_EDIT   = (st) => { if(IS_COORD()) return false; if(IS_TRAINER()) return st.subject===S.trainerSubject; return true; };
 
-// Find account by username
-function findAccount(username, password) {
+// Find account — checks admin first, then Firestore
+async function findAccount(username, password) {
   if(username === ADMIN_ACCOUNT.username && password === ADMIN_ACCOUNT.password) return ADMIN_ACCOUNT;
-  return USERS.find(u => u.username===username && u.password===password) || null;
+  try {
+    const snap = await db.collection('users').where('username','==',username).where('password','==',password).get();
+    if(snap.empty) return null;
+    const doc = snap.docs[0];
+    return { id: doc.id, ...doc.data() };
+  } catch(e) {
+    console.error('findAccount error:', e);
+    return null;
+  }
 }
 
 // ── RISK SCORE ───────────────────────────────────────────────
@@ -1773,6 +1788,27 @@ function genStudents(){
   });
 }
 
+// ── FIRESTORE STUDENTS ───────────────────────────────────────
+async function loadStudentsFromDB(){
+  try {
+    const snap = await db.collection('students').get();
+    if(snap.empty){
+      // أول مرة: احفظ البيانات التجريبية في Firestore
+      allStudents = genStudents();
+      const batch = db.batch();
+      allStudents.forEach(s=>{
+        batch.set(db.collection('students').doc(s.id), s);
+      });
+      await batch.commit();
+    } else {
+      allStudents = snap.docs.map(d=>({...d.data(), id:d.id}));
+    }
+  } catch(e){
+    console.error('loadStudentsFromDB error:', e);
+    allStudents = genStudents();
+  }
+}
+
 // ── AUTH ─────────────────────────────────────────────────────
 // setRole replaced by DB auth
 function applyRoleUI(){
@@ -1818,14 +1854,22 @@ function showLoginErr(msg){
 }
 function hideLoginErr(){document.getElementById('loginErr').style.display='none';}
 
-function doLogin(){
+async function doLogin(){
   hideLoginErr();
   const u=document.getElementById('lUser').value.trim();
   const p=document.getElementById('lPass').value;
   if(!u){showLoginErr('أدخل اسم المستخدم');return;}
   if(!p){showLoginErr('أدخل كلمة المرور');return;}
 
-  const acc=findAccount(u,p);
+  // Show loading state
+  const btn=document.querySelector('#login-page .btn-teal');
+  const origTxt=btn.innerHTML;
+  btn.innerHTML='<i class="fa fa-spinner fa-spin"></i> جاري التحقق...';
+  btn.disabled=true;
+
+  const acc=await findAccount(u,p);
+  btn.innerHTML=origTxt; btn.disabled=false;
+
   if(!acc){
     showLoginErr('اسم المستخدم أو كلمة المرور غير صحيحة');
     document.getElementById('lPass').value='';
@@ -1843,7 +1887,9 @@ function doLogin(){
   document.getElementById('sbBadge').textContent={admin:'مدير',trainer:'مدرب',coord:'منسق'}[S.role];
   document.getElementById('login-page').style.display='none';
   document.getElementById('app').classList.add('on');
-  allStudents=genStudents();
+
+  // Load students from Firestore
+  await loadStudentsFromDB();
   filteredStudents=allStudents.filter(s=>s.status===curFilter);
   curPage=1;
   applyRoleUI(); initAll();
@@ -2204,6 +2250,8 @@ function saveSt(){
       toast('success','تم','تم تعديل بيانات الطالب');
     }
   } else{allStudents.unshift(obj);toast('success','تمت الإضافة','تم إضافة الطالب بنجاح');}
+  // حفظ في Firestore
+  db.collection('students').doc(obj.id).set(obj).catch(e=>console.error('saveSt FB error:',e));
   applyF(); closeM('stModal');
   document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
   updKPIs(); rndrDashTbl(); rndrAlerts();
@@ -2246,15 +2294,11 @@ function delSt(idx){
   if(IS_COORD()){toast('warn','صلاحية','أنت في وضع اطلاع فقط');return;}
   const s=allStudents[idx];
   if(!CAN_EDIT(s)){toast('warn','صلاحية','لا يمكنك حذف طالب من مادة أخرى');return;}
-  // إن كان هناك حذف معلّق → أنهِه فوراً قبل البدء بحذف جديد
   if(_undoState) _finalizeDelete();
-  // احفظ الحالة قبل الحذف
   _undoState={student:s, idx, startTime:Date.now()};
-  // احذف من المصفوفة وحدّث الواجهة
   allStudents.splice(idx,1); applyF();
   document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
   updKPIs();
-  // أظهر شريط التراجع
   _showUndoBar(s.name);
 }
 
@@ -2310,10 +2354,13 @@ function commitDelete(){
 
 function _finalizeDelete(){
   if(!_undoState)return;
-  const name=_undoState.student.name;
+  const {student, name: nm} = _undoState;
+  const sName = student.name;
   _hideUndoBar();
+  // احذف من Firestore نهائياً
+  db.collection('students').doc(student.id).delete().catch(e=>console.error('delSt FB error:',e));
   _undoState=null;
-  toast('success','تم الحذف',`حُذف سجل: ${name}`);
+  toast('success','تم الحذف',`حُذف سجل: ${sName}`);
 }
 function doAlert(){const s=curIdx>=0?allStudents[curIdx]:null;toast('success','تنبيه',`تم إرسال تنبيه بشأن ${s?.name||'الطالب'}`);closeM('viewModal');}
 
@@ -2688,11 +2735,14 @@ let curUsrId = null; // editing existing user
 function rndrUsers(){
   const grid=document.getElementById('usrGrid');
   if(!grid)return;
-  if(!USERS.length){
-    grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--muted)"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3.5"/><circle cx="17" cy="7" r="3.5"/><path d="M1 20c0-3.3 3.6-6 8-6"/><path d="M23 20c0-3.3-3.6-6-8-6s-8 2.7-8 6"/></svg></span><p>لا يوجد مستخدمون مضافون بعد</p></div>`;
-    return;
-  }
-  grid.innerHTML=USERS.map((u,i)=>`
+  grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--muted)"><i class="fa fa-spinner fa-spin"></i> جاري التحميل...</div>`;
+  db.collection('users').get().then(snap=>{
+    USERS=snap.docs.map(d=>({id:d.id,...d.data()}));
+    if(!USERS.length){
+      grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--muted)"><p>لا يوجد مستخدمون مضافون بعد</p></div>`;
+      return;
+    }
+    grid.innerHTML=USERS.map((u,i)=>`
     <div class="usr-card ${u.role}">
       <div class="usr-card-top">
         <div class="usr-av ${u.role}">${(u.name||'?')[0]}</div>
@@ -2716,6 +2766,9 @@ function rndrUsers(){
         <button class="usr-del"  onclick="delUser('${u.id}')"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span> حذف</button>
       </div>
     </div>`).join('');
+  }).catch(()=>{
+    grid.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--red)">فشل تحميل المستخدمين</div>`;
+  });
 }
 
 function setUsrRole(role,btn){
@@ -2821,32 +2874,31 @@ function saveUser(){
   if(taken){toast('error','خطأ','اسم الدخول مستخدم بالفعل — اختر آخر');return;}
 
   if(curUsrId){
-    // Edit existing
-    const idx=USERS.findIndex(u=>u.id===curUsrId);
-    if(idx>=0){
-      USERS[idx]={...USERS[idx],name,username,password,role,subject,phone,notes};
-      toast('success','تم التحديث',`تم تحديث حساب ${name}`);
-    }
+    // تعديل في Firestore
+    db.collection('users').doc(curUsrId).update({name,username,password,role,subject,phone,notes})
+      .then(()=>{ toast('success','تم التحديث',`تم تحديث حساب ${name}`); rndrUsers(); })
+      .catch(()=>toast('error','خطأ','فشل التحديث'));
   } else {
-    // Add new
-    const newUser={id:'u'+Date.now(),name,username,password,role,subject,phone,notes};
-    USERS.push(newUser);
-    toast('success','تم الإنشاء',`تم إنشاء حساب ${role==='trainer'?'المدرب':'المنسق'} ${name}`);
-    // Add toast with credentials
-    setTimeout(()=>toast('info','بيانات الدخول',`اسم الدخول: ${username} — كلمة المرور: ${password}`,6000),500);
+    // إضافة جديدة في Firestore
+    db.collection('users').add({name,username,password,role,subject,phone,notes})
+      .then(()=>{
+        toast('success','تم الإنشاء',`تم إنشاء حساب ${role==='trainer'?'المدرب':'المنسق'} ${name}`);
+        setTimeout(()=>toast('info','بيانات الدخول',`اسم الدخول: ${username} — كلمة المرور: ${password}`,6000),500);
+        rndrUsers();
+      })
+      .catch(()=>toast('error','خطأ','فشل الإنشاء'));
   }
 
   closeM('usrModal');
-  rndrUsers();
 }
 
 function delUser(id){
   const u=USERS.find(x=>x.id===id);
   if(!u)return;
   if(!confirm(`حذف حساب: ${u.name} (@${u.username})؟\nلن يتمكن من الدخول للمنصة بعد الحذف.`))return;
-  USERS=USERS.filter(x=>x.id!==id);
-  rndrUsers();
-  toast('success','تم الحذف',`تم حذف حساب ${u.name}`);
+  db.collection('users').doc(id).delete()
+    .then(()=>{ USERS=USERS.filter(x=>x.id!==id); rndrUsers(); toast('success','تم الحذف',`تم حذف حساب ${u.name}`); })
+    .catch(()=>toast('error','خطأ','فشل الحذف'));
 }
 
 // ── BOTTOM NAV & FAB ─────────────────────────────────────
