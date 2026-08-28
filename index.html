@@ -835,17 +835,21 @@ const firebaseConfig = {
     }
   }
   async function fsSet(col, id, data) {
+    if(!id){ console.error('fsSet: missing id'); return false; }
     try {
-      await col.doc(id).set(data, {merge:true});
+      await col.doc(String(id)).set(data, {merge:true});
+      console.log('✓ fsSet success:', String(id));
       return true;
     } catch(e){
-      console.error('Firestore fsSet error:',e.code, e.message);
+      console.error('Firestore fsSet error:',e.code, e.message, 'id:', id);
       if(e.code==='permission-denied')
-        toast('error','خطأ صلاحية','قاعدة البيانات غير مفعّلة — افتح Firebase وفعّل Firestore');
-      else if(e.code==='unavailable')
+        toast('error','خطأ صلاحية','قاعدة البيانات — تأكد من قواعد Firestore (allow read, write: if true)');
+      else if(e.code==='unavailable' || e.code==='network-request-failed')
         toast('error','لا يوجد اتصال','تحقق من الإنترنت وأعد المحاولة');
+      else if(e.code==='not-found')
+        toast('error','Firestore','قاعدة البيانات غير موجودة — فعّلها في Firebase Console');
       else
-        toast('error','خطأ في الحفظ', e.message||'تعذّر الحفظ');
+        toast('error','خطأ في الحفظ', e.message||'تعذّر الحفظ — '+e.code);
       return false;
     }
   }
@@ -1681,8 +1685,9 @@ function doLogin(){
   document.getElementById('app').classList.add('on');
   applyRoleUI();
   curPage=1;
-  // Load all data from Firestore
+  // اختبار اتصال Firestore أولاً
   showFbLoading(true);
+  // Load all data from Firestore
   loadAllData().then(()=>{
     showFbLoading(false);
     filteredStudents=allStudents.filter(s=>s.status===curFilter);
@@ -1740,30 +1745,14 @@ async function loadAllData(){
       fsGet(COL.notifs),
       fsGet(COL.atts),
     ]);
-
-    // إذا رجعت كل القوائم فارغة = Firestore غير مفعّل
-    const totalDocs = students.length+depts.length+subjects.length+users.length;
-    if(totalDocs===0) {
-      // حاول seed مرة ثانية
-      // seedIfEmpty disabled
-      // أعد التحميل
-      const [s2,d2,sub2,t2,u2,n2,a2] = await Promise.all([
-        fsGet(COL.students),fsGet(COL.depts),fsGet(COL.subjects),
-        fsGet(COL.trainers),fsGet(COL.users),fsGet(COL.notifs),fsGet(COL.atts),
-      ]);
-      allStudents = s2.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-      DEPTS=d2; SUBJECTS=sub2; TRAINERS=t2; USERS=u2;
-      NOTIFS=n2.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-      atts_list=a2.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-    } else {
-      allStudents = students.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-      DEPTS=depts; SUBJECTS=subjects; TRAINERS=trainers; USERS=users;
-      NOTIFS=notifs.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-      atts_list=atts.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-    }
+    // حمّل البيانات مباشرة — إذا كانت فارغة فهي فارغة (لا retry)
+    allStudents = students.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    DEPTS=depts; SUBJECTS=subjects; TRAINERS=trainers; USERS=users;
+    NOTIFS=notifs.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    atts_list=atts.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
     if(typeof rndrAtts==='function') rndrAtts();
   } catch(e) {
-    console.error('loadAllData failed:',e);
+    console.error('loadAllData failed:',e.code, e.message);
     throw e;
   }
 }
@@ -2065,14 +2054,23 @@ function saveSt(){
   obj.updatedBy = S.name||'admin';
 
   showFbLoading(true);
+  console.log('Saving student to Firestore:', stId, obj);
   fsSet(COL.students, stId, obj).then(ok=>{
     showFbLoading(false);
-    if(!ok) return;
-    if(curIdx>=0){allStudents[curIdx]=obj;toast('success','تم','تم تعديل بيانات الطالب');}
-    else{allStudents.unshift(obj);toast('success','تمت الإضافة','تم إضافة الطالب بنجاح');}
+    console.log('Firestore save result:', ok);
+    if(!ok){
+      toast('error','خطأ في الحفظ','تعذّر حفظ بيانات الطالب — تحقق من اتصال Firebase');
+      return;
+    }
+    if(curIdx>=0){allStudents[curIdx]=obj;toast('success','تم الحفظ','تم تعديل بيانات الطالب ✓');}
+    else{allStudents.unshift(obj);toast('success','تمت الإضافة','تم إضافة الطالب وحفظه ✓');}
     applyF(); closeM('stModal');
     document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
     updKPIs(); rndrDashTbl(); rndrAlerts();
+  }).catch(e=>{
+    showFbLoading(false);
+    console.error('saveSt Firestore error:', e);
+    toast('error','خطأ Firebase', e.message||'تعذّر الحفظ');
   });
 }
 function viewSt(idx){
