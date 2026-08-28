@@ -1523,7 +1523,7 @@ async function findAccountAsync(username, password) {
 
 // ── CONFIG ──────────────────────────────────────────────────
 const CFG = { deprivationPct:20, college:'الكلية التقنية بشرورة', year:'2025/2026' };
-let absCount=13, allStudents=[], filteredStudents=[], curFilter='deprived', curPage=1;
+let absCount=0, allStudents=[], filteredStudents=[], curFilter='deprived', curPage=1;
 const PAGE=10;
 let chartsInited=false, rptInited=false, curIdx=-1, curMgType='dept';
 let atts_list=[], pendFile=null;
@@ -1824,7 +1824,7 @@ function rndrAlerts(){
   const dep=allStudents.filter(s=>s.status==='deprived').length;
   const tot=DEPTS.reduce((a,d)=>a+d.students,0);
   const depRate=allStudents.length>0?(dep/allStudents.length*100).toFixed(1):0;
-  const hi=allStudents.filter(s=>s.status==='deprived'&&s.absences>=s.maxAbs+5).length;
+  const hi=allStudents.filter(s=>s.status==='deprived'&&absPct(s)>=CFG.deprivationPct+10).length;
   const alerts=[
     {cls:'red',  icon:'fa-user-slash',     title:`${dep} طالب محروم — مسجّلون في المنصة`,    desc:'يجب مراجعة حالتهم والتواصل مع أولياء الأمور',time:'محدّث الآن'},
     {cls:'red',  icon:'fa-triangle-exclamation',title:`${hi} طالب تجاوزوا الحد بـ٥ غيابات أو أكثر`,desc:'يستلزم إجراءً عاجلاً',time:'منذ ١ ساعة'},
@@ -1898,7 +1898,7 @@ function rndrStudents(){
       <td><div class="scell"><div class="sav" style="background:${s.deptColor}">${s.name[0]}</div><div><div class="sname">${s.name}</div><div class="sid">${s.id}</div></div></div></td>
       <td class="col-hide-mobile"><span class="dc ${s.deptCls}">${s.dept}</span></td>
       <td class="col-hide-mobile" style="font-size:.76rem;color:var(--muted)">${s.subject}</td>
-      <td><div style="display:flex;align-items:center;gap:4px"><div class="abs-bar"><div class="abs-fill" style="width:${Math.min(pct,100)}%;background:${bc}"></div></div><strong style="color:${bc};font-size:.8rem">${s.absences}</strong></div></td>
+      <td><div style="display:flex;align-items:center;gap:4px"><div class="abs-bar"><div class="abs-fill" style="width:${Math.min(pct,100)}%;background:${bc}"></div></div><strong style="color:${bc};font-size:.8rem">${pct}٪</strong></div></td>
       <td class="col-hide-mobile" style="font-size:.74rem;color:var(--muted)">${s.reason}</td>
       <td class="col-hide-mobile" style="font-size:.74rem">${s.trainer}</td>
       <td><span class="sbadge ${STATUS_CSS[s.status]}">${STATUS_MAP[s.status]}</span></td>
@@ -2053,8 +2053,8 @@ function saveSt(){
 }
 function viewSt(idx){
   curIdx=idx; const s=allStudents[idx];
-  const pct=Math.round(s.absences/s.maxAbs*100);
-  const bc=pct>=100?'var(--red)':pct>=75?'var(--amber)':'var(--green)';
+  const pct=absPct(s);
+  const bc=pct>=CFG.deprivationPct?'var(--red)':pct>=(CFG.deprivationPct*.75)?'var(--amber)':'var(--green)';
   const canMgr=CAN_EDIT(s);
   document.getElementById('vBody').innerHTML=`
     <div style="display:flex;align-items:center;gap:13px;margin-bottom:18px;padding:14px;background:var(--bg);border-radius:10px">
