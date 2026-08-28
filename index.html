@@ -787,6 +787,11 @@ body.sb-open{overflow:hidden}
 .pledge-badge.pending{background:rgba(245,158,11,.1);color:#b45309}
 .pledge-badge.none{background:rgba(183,190,198,.15);color:var(--muted)}
 
+
+/* ── حقل الاسم والرقم في صف واحد ── */
+#m_name:focus + *, #m_id:focus { border-color: var(--teal); }
+#idDupWarn { z-index:10; background:rgba(255,255,255,.95); padding:2px 6px; border-radius:4px; border:1px solid var(--amber); }
+
 </style>
 
 <!-- Firebase SDK -->
@@ -1290,8 +1295,19 @@ const firebaseConfig = {
     <div class="mbody">
       <div class="trainer-note" id="trNote"><span class="svg-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span> <strong>صلاحيتك:</strong> إضافة وتعديل طلاب مادة <span id="trNoteSubj"></span> فقط</div>
       <div class="fg2">
-        <div class="fg" style="margin:0"><label class="fl">الاسم الكامل *</label><input class="fc2" id="m_name" placeholder="اسم المتدرب"></div>
-        <div class="fg" style="margin:0"><label class="fl">الرقم التدريبي *</label><input class="fc2" id="m_id" placeholder="2024001"></div>
+        <!-- الاسم والرقم التدريبي في صف واحد -->
+        <div class="fg full" style="margin:0">
+          <label class="fl">الاسم الكامل *</label>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input class="fc2" id="m_name" placeholder="اسم المتدرب" style="flex:2;min-width:0">
+            <div style="position:relative;flex:1;min-width:0">
+              <input class="fc2" id="m_id" placeholder="الرقم التدريبي" style="padding-left:32px;direction:ltr;text-align:left"
+                oninput="chkDupId(this.value)">
+              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:.7rem;color:var(--muted);pointer-events:none">#</span>
+              <span id="idDupWarn" style="display:none;position:absolute;left:0;top:calc(100% + 2px);font-size:.68rem;color:var(--amber);font-weight:700;white-space:nowrap">⚠️ رقم مستخدم</span>
+            </div>
+          </div>
+        </div>
         <div class="fg" style="margin:0"><label class="fl">القسم *</label><select class="fsel2" id="m_dept" onchange="sSubj();sTrn()"></select></div>
         <div class="fg" style="margin:0"><label class="fl">التخصص</label><input class="fc2" id="m_spec" placeholder="أمن المعلومات"></div>
         <div class="fg" style="margin:0"><label class="fl">المادة *</label><select class="fsel2" id="m_subject"></select></div>
@@ -1708,6 +1724,7 @@ function doLogout(){
   // ── مسح الجلسة من localStorage + Firebase Auth ──────────
   localStorage.removeItem('ts_session');
   try { auth.signOut(); } catch(e) {}
+  stopAutoSync();
   document.getElementById('app').classList.remove('on');
   document.getElementById('login-page').style.display='flex';
   chartsInited=false; rptInited=false;
@@ -2068,11 +2085,18 @@ function saveSt(){
       toast('error','خطأ في الحفظ','تعذّر حفظ بيانات الطالب — تحقق من اتصال Firebase');
       return;
     }
-    if(curIdx>=0){allStudents[curIdx]=obj;toast('success','تم الحفظ','تم تعديل بيانات الطالب ✓');}
-    else{allStudents.unshift(obj);toast('success','تمت الإضافة','تم إضافة الطالب وحفظه ✓');}
+    // تحديث الذاكرة المحلية فوراً
+    if(curIdx>=0){
+      allStudents[curIdx]=obj;
+      toast('success','تم الحفظ','تم تعديل بيانات الطالب وحفظه في قاعدة البيانات ✓');
+    } else {
+      allStudents.unshift(obj);
+      toast('success','تمت الإضافة','تم إضافة الطالب وحفظه في قاعدة البيانات ✓');
+    }
+    filteredStudents=allStudents.filter(s=>s.status===curFilter);
     applyF(); closeM('stModal');
     document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
-    updKPIs(); rndrDashTbl(); rndrAlerts();
+    updKPIs(); rndrDashTbl(); rndrAlerts(); rndrStudents(); rndrPag();
   }).catch(e=>{
     showFbLoading(false);
     console.error('saveSt Firestore error:', e);
@@ -2120,9 +2144,12 @@ function delSt(idx){
   fsDel(COL.students, stId).then(ok=>{
     showFbLoading(false);
     if(!ok) return;
-    allStudents.splice(idx,1); applyF();
+    allStudents.splice(idx,1);
+    filteredStudents=allStudents.filter(s=>s.status===curFilter);
+    applyF();
     document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
-    updKPIs(); toast('success','تم الحذف','تم حذف السجل بنجاح');
+    updKPIs(); rndrDashTbl(); rndrAlerts();
+    toast('success','تم الحذف','تم حذف السجل من قاعدة البيانات نهائياً ✓');
   });
 }
 function doAlert(){const s=curIdx>=0?allStudents[curIdx]:null;toast('success','تنبيه',`تم إرسال تنبيه بشأن ${s?.name||'الطالب'}`);closeM('viewModal');}
@@ -2415,6 +2442,19 @@ function toast(type,title,desc='',dur=3500){
 
 // ── KEYBOARD SHORTCUTS ────────────────────────────────────────
 
+
+// ── التحقق من تكرار الرقم التدريبي ───────────────────────
+function chkDupId(val) {
+  const warn = document.getElementById('idDupWarn');
+  if(!warn) return;
+  const v = (val||'').trim();
+  if(!v){ warn.style.display='none'; return; }
+  // لا نتحقق إذا كنا في وضع التعديل على نفس الطالب
+  const editingId = curIdx>=0 ? allStudents[curIdx]?.id : null;
+  const dup = allStudents.some(s => s.id===v && s.id!==editingId);
+  warn.style.display = dup ? 'block' : 'none';
+}
+
 // ── البحث بالرقم التدريبي ─────────────────────────────────
 function openIdSearch(){
   document.getElementById('idSearchInput').value='';
@@ -2543,6 +2583,26 @@ async function clearAllData() {
     showFbLoading(false);
     toast('error','خطأ','تعذّر الحذف: '+e.message);
   }
+}
+
+
+// ── مزامنة تلقائية كل 5 دقائق ───────────────────────────
+let autoSyncTimer = null;
+function startAutoSync() {
+  if(autoSyncTimer) clearInterval(autoSyncTimer);
+  autoSyncTimer = setInterval(async () => {
+    if(!S.role) return; // غير مسجل
+    try {
+      await loadAllData();
+      filteredStudents=allStudents.filter(s=>s.status===curFilter);
+      rndrStudents(); rndrPag(); updKPIs();
+      document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
+      console.log('Auto-sync done:', new Date().toLocaleTimeString('ar'));
+    } catch(e){ console.warn('Auto-sync failed:', e.message); }
+  }, 5 * 60 * 1000); // كل 5 دقائق
+}
+function stopAutoSync() {
+  if(autoSyncTimer){ clearInterval(autoSyncTimer); autoSyncTimer=null; }
 }
 
 // ── SWIPE GESTURES ───────────────────────────────────────
@@ -3010,18 +3070,23 @@ window.addEventListener('load',()=>{
       document.getElementById('fbLoading').classList.remove('hide');
       // محاولة مع retry تلقائي
       const tryLoad = (attempt=1) => {
+        console.log('Loading data from Firestore, attempt:', attempt);
         loadAllData().then(()=>{
           showFbLoading(false);
+          console.log('Data loaded:', allStudents.length, 'students,', DEPTS.length, 'depts');
           filteredStudents = allStudents.filter(s=>s.status===curFilter);
           initAll();
+          startAutoSync();
         }).catch(e=>{
-          if(attempt < 3) {
+          console.error('loadAllData error:', e.code, e.message);
+          if(attempt < 4) {
+            console.log('Retrying in', 1500*attempt, 'ms');
             setTimeout(()=>tryLoad(attempt+1), 1500*attempt);
           } else {
             showFbLoading(false);
             allStudents=[]; filteredStudents=[];
             initAll();
-            toast('warn','تنبيه','تعذّر تحميل البيانات — يعمل بدون اتصال');
+            toast('warn','تنبيه','تعذّر تحميل البيانات — تحقق من اتصال Firebase');
           }
         });
       };
