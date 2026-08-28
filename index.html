@@ -3107,7 +3107,8 @@ window.addEventListener('load',()=>{
   // ── حاول استعادة الجلسة ──────────────────────────────────
   const hasSession = restoreSession();
 
-  setTimeout(()=>{
+  // إظهار التطبيق مباشرة بعد جاهزية DOM واستعادة الجلسة — بدون انتظار زمني ثابت
+  requestAnimationFrame(()=>{
     document.getElementById('loader').classList.add('out');
 
     if (hasSession) {
@@ -3141,7 +3142,7 @@ window.addEventListener('load',()=>{
       showFbLoading(false);
       document.getElementById('login-page').style.display='flex';
     }
-  }, 1400);
+  });
 });
 </script>
 </body>
