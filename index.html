@@ -3272,6 +3272,15 @@ window.addEventListener('load',()=>{
     setTimeout(startupSync,0);
   });
 });
+
+// ── تسجيل Service Worker (تفعيل PWA/العمل دون اتصال) ──────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js').catch(e=>{
+      console.warn('SW registration failed:', e);
+    });
+  });
+}
 </script>
 </body>
 </html>

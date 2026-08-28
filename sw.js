@@ -4,11 +4,11 @@
 ═══════════════════════════════════════════════════════════ */
 
 const CACHE_NAME = 'tasarrob-v1';
-const OFFLINE_URL = './tasarrob-v2.html';
+const OFFLINE_URL = './index.html';
 
 // الموارد الأساسية للتخزين المؤقت
 const CORE_ASSETS = [
-  './tasarrob-v2.html',
+  './index.html',
   './manifest.json',
   './icon.svg',
   './icon-192.png',
