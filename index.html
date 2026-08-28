@@ -792,6 +792,7 @@ body.sb-open{overflow:hidden}
 <!-- Firebase SDK -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script>
 
 const firebaseConfig = {
@@ -804,7 +805,10 @@ const firebaseConfig = {
 };
 
   firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
+  const db  = firebase.firestore();
+  const auth = firebase.auth();
+  // تفعيل persistence للجلسة
+  auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
 
   // ── Firestore helpers ──────────────────────────────────────
   const COL = {
@@ -864,60 +868,7 @@ const firebaseConfig = {
   }
 
   // ── Seed default data if Firestore is empty ────────────────
-  async function seedIfEmpty() {
-    let snap;
-    try {
-      snap = await COL.depts.limit(1).get();
-    } catch(e) {
-      console.warn('Firestore not ready yet:', e.code);
-      return; // Firestore not enabled yet
-    }
-    if (!snap.empty) return; // already seeded
-
-    console.log('Seeding Firestore with default data...');
-    const batch = db.batch();
-
-    const depts = [
-      {id:'it',  name:'تقنية المعلومات',  icon:'fas fa-laptop-code',     color:'#3B82F6', cls:'dc0', students:92, cnt:18},
-      {id:'elec',name:'الإلكترونيات',      icon:'fas fa-microchip',        color:'#F59E0B', cls:'dc1', students:58, cnt:10},
-      {id:'mech',name:'الميكانيكا',        icon:'fas fa-wrench',           color:'#EF4444', cls:'dc2', students:47, cnt:8},
-      {id:'buss',name:'إدارة الأعمال',     icon:'fas fa-briefcase',        color:'#22C55E', cls:'dc3', students:63, cnt:6},
-      {id:'arch',name:'الهندسة المعمارية', icon:'fas fa-drafting-compass', color:'#00B5B5', cls:'dc4', students:32, cnt:3},
-      {id:'auto',name:'تقنية السيارات',    icon:'fas fa-car-engine',       color:'#A855F7', cls:'dc5', students:20, cnt:2},
-    ];
-    depts.forEach(d=> batch.set(COL.depts.doc(d.id), d));
-
-    const subjects = [
-      {id:'s1',name:'الشبكات المتقدمة',   dept:'تقنية المعلومات',  icon:'fas fa-network-wired', color:'#3B82F6'},
-      {id:'s2',name:'برمجة الويب',         dept:'تقنية المعلومات',  icon:'fas fa-code',           color:'#3B82F6'},
-      {id:'s3',name:'أمن المعلومات',       dept:'تقنية المعلومات',  icon:'fas fa-shield-halved',  color:'#3B82F6'},
-      {id:'s4',name:'قواعد البيانات',      dept:'تقنية المعلومات',  icon:'fas fa-database',       color:'#3B82F6'},
-      {id:'s5',name:'أنظمة التشغيل',      dept:'الإلكترونيات',     icon:'fas fa-microchip',      color:'#F59E0B'},
-      {id:'s6',name:'إدارة المشاريع',     dept:'إدارة الأعمال',    icon:'fas fa-diagram-project',color:'#22C55E'},
-      {id:'s7',name:'الدوائر الإلكترونية',dept:'الإلكترونيات',     icon:'fas fa-bolt',           color:'#F59E0B'},
-      {id:'s8',name:'ميكانيكا السيارات',  dept:'تقنية السيارات',   icon:'fas fa-car-engine',     color:'#A855F7'},
-    ];
-    subjects.forEach(s=> batch.set(COL.subjects.doc(s.id), s));
-
-    const trainers = [
-      {id:'t1',name:'م. سعيد القحطاني', dept:'تقنية المعلومات',  subject:'الشبكات المتقدمة',   spec:'شبكات وأمن'},
-      {id:'t2',name:'م. منير العتيبي',  dept:'الإلكترونيات',     subject:'الدوائر الإلكترونية',spec:'دوائر إلكترونية'},
-      {id:'t3',name:'م. رامي الشهري',   dept:'الميكانيكا',       subject:'ميكانيكا السيارات',  spec:'ميكانيكا'},
-      {id:'t4',name:'م. أشرف الغامدي', dept:'إدارة الأعمال',    subject:'إدارة المشاريع',     spec:'إدارة مشاريع'},
-      {id:'t5',name:'م. طارق السالمي',  dept:'تقنية المعلومات',  subject:'برمجة الويب',        spec:'برمجة ويب'},
-    ];
-    trainers.forEach(t=> batch.set(COL.trainers.doc(t.id), t));
-
-    // default users
-    const users = [
-      {id:'u1',username:'trainer1',password:'T@1234',role:'trainer',name:'م. سعيد القحطاني',subject:'الشبكات المتقدمة',phone:'0501234567',notes:'قسم تقنية المعلومات'},
-      {id:'u2',username:'coord1',  password:'C@1234',role:'coord',  name:'منسق الإرشاد',    subject:'',                 phone:'0507654321',notes:'وحدة الخدمات الإرشادية'},
-    ];
-    users.forEach(u=> batch.set(COL.users.doc(u.id), u));
-
-    await batch.commit();
-    console.log('Firestore seeded.');
-  }
+  // seedIfEmpty removed — no fake data
 
   window._fbReady = false;
   window._fbReadyCallbacks = [];
@@ -1227,6 +1178,58 @@ const firebaseConfig = {
       </div>
       <div class="ss" id="st-sys" style="display:none">
         <div class="ss-ttl"><span class="svg-icon"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/><path d="M3 12c0 1.66 4 3 9 3s9-1.34 9-3"/></svg></span>إعدادات النظام</div>
+
+          <!-- Firestore Rules Card -->
+          <div style="background:rgba(0,181,181,.06);border:1.5px solid rgba(0,181,181,.2);border-radius:12px;padding:16px;margin-bottom:16px">
+            <div style="font-weight:800;font-size:.9rem;color:var(--navy);margin-bottom:8px">
+              <span class="svg-icon" style="color:var(--teal)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></span>
+              إعدادات Firestore Database
+            </div>
+            <div style="font-size:.78rem;color:var(--muted);line-height:1.6;margin-bottom:10px">
+              لحفظ البيانات بشكل دائم تأكد من تفعيل Firestore بوضع <strong>Test mode</strong> في Firebase Console.
+              الرابط: <strong style="color:var(--teal)">console.firebase.google.com</strong>
+            </div>
+            <div style="font-size:.72rem;background:var(--navy);color:#a8e6e6;border-radius:8px;padding:10px;font-family:monospace;line-height:1.8">
+              rules_version = '2';<br>
+              service cloud.firestore {<br>
+              &nbsp;&nbsp;match /databases/{db}/documents {<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;match /{doc=**} {<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;allow read, write: if true;<br>
+              &nbsp;&nbsp;&nbsp;&nbsp;}<br>
+              &nbsp;&nbsp;}<br>
+              }
+            </div>
+          </div>
+
+          <!-- حذف جميع البيانات -->
+          <div style="background:rgba(239,68,68,.06);border:1.5px solid rgba(239,68,68,.2);border-radius:12px;padding:16px;margin-bottom:16px">
+            <div style="font-weight:800;font-size:.9rem;color:var(--navy);margin-bottom:8px">
+              <span class="svg-icon" style="color:var(--red)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span>
+              حذف جميع البيانات
+            </div>
+            <div style="font-size:.78rem;color:var(--muted);line-height:1.6;margin-bottom:10px">
+              احذف جميع البيانات الوهمية أو القديمة من قاعدة البيانات. <strong style="color:var(--red)">لا يمكن التراجع عن هذا الإجراء.</strong>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn" onclick="clearCollection('students')" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.3);font-size:.8rem">
+                <span class="svg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><line x1="18" y1="11" x2="18" y2="17"/><line x1="15" y1="14" x2="21" y2="14"/></svg></span>
+                حذف الطلاب
+              </button>
+              <button class="btn" onclick="clearCollection('departments')" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.3);font-size:.8rem">
+                حذف الأقسام
+              </button>
+              <button class="btn" onclick="clearCollection('subjects')" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.3);font-size:.8rem">
+                حذف المواد
+              </button>
+              <button class="btn" onclick="clearCollection('trainers')" style="background:rgba(239,68,68,.1);color:var(--red);border:1px solid rgba(239,68,68,.3);font-size:.8rem">
+                حذف المدربين
+              </button>
+              <button class="btn" onclick="clearAllData()" style="background:var(--red);color:white;font-size:.8rem">
+                <span class="svg-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></span>
+                حذف الكل
+              </button>
+            </div>
+          </div>
         <div class="trow"><div><div class="tl">نسبة الحرمان %</div><div class="td">النسبة المئوية للغياب التي تُعدّ حرماناً (الحد 20%)</div></div><input type="number" class="fc2" id="maxAbsIn" value="20" style="width:70px;text-align:center" min="1" max="100" onchange="setMax(this.value)"></div>
         <div class="trow"><div><div class="tl">اسم الكلية</div></div><input type="text" class="fc2" id="collN" value="الكلية التقنية بشرورة" style="width:210px"></div>
         <div class="trow"><div><div class="tl">السنة الدراسية</div></div><input type="text" class="fc2" id="acYr" value="2025 / 2026" style="width:130px"></div>
@@ -1514,11 +1517,30 @@ function findAccount(username, password) {
 }
 // async version — loads users fresh from Firestore then checks
 async function findAccountAsync(username, password) {
+  // ── Admin account (hardcoded, no Firebase Auth needed)
   if(username === ADMIN_ACCOUNT.username && password === ADMIN_ACCOUNT.password) return ADMIN_ACCOUNT;
-  // refresh USERS from Firestore in case new users were added
+
+  // ── Firestore users
   const freshUsers = await fsGet(COL.users);
   if(freshUsers.length) USERS = freshUsers;
-  return USERS.find(u => u.username===username && u.password===password) || null;
+  const acc = USERS.find(u => u.username===username && u.password===password);
+  if(!acc) return null;
+
+  // ── Firebase Auth: sign in or create user silently
+  const fakeEmail = username.replace(/[^a-zA-Z0-9]/g,'') + '@tasarrob.local';
+  try {
+    await auth.signInWithEmailAndPassword(fakeEmail, password);
+  } catch(e) {
+    if(e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-email') {
+      try {
+        await auth.createUserWithEmailAndPassword(fakeEmail, password);
+      } catch(e2) {
+        // Auth optional — continue even if fails
+        console.warn('Auth create skipped:', e2.code);
+      }
+    }
+  }
+  return acc;
 }
 
 // ── CONFIG ──────────────────────────────────────────────────
@@ -1645,7 +1667,8 @@ function doLogin(){
     subject: acc.subject||'',
     userId: acc.id||'admin',
     username: acc.username||'admin',
-    ts: Date.now()
+    ts: Date.now(),
+    v: 2
   }));
 
   const RM={admin:['مدير النظام','صلاحيات كاملة'],trainer:['مدرب','مدرب تدريبي'],coord:['منسق','منسق إرشادي']};
@@ -1675,8 +1698,9 @@ function doLogin(){
   }); // end findAccountAsync
 }
 function doLogout(){
-  // ── مسح الجلسة من localStorage ──────────────────────────
+  // ── مسح الجلسة من localStorage + Firebase Auth ──────────
   localStorage.removeItem('ts_session');
+  try { auth.signOut(); } catch(e) {}
   document.getElementById('app').classList.remove('on');
   document.getElementById('login-page').style.display='flex';
   chartsInited=false; rptInited=false;
@@ -1721,7 +1745,7 @@ async function loadAllData(){
     const totalDocs = students.length+depts.length+subjects.length+users.length;
     if(totalDocs===0) {
       // حاول seed مرة ثانية
-      await seedIfEmpty();
+      // seedIfEmpty disabled
       // أعد التحميل
       const [s2,d2,sub2,t2,u2,n2,a2] = await Promise.all([
         fsGet(COL.students),fsGet(COL.depts),fsGet(COL.subjects),
@@ -2435,6 +2459,57 @@ function doIdSearch(q){
   }).join('');
 }
 
+
+// ── حذف مجموعة كاملة من Firestore ─────────────────────────
+async function clearCollection(colName) {
+  if(!IS_ADMIN()){toast('warn','صلاحية','للمدير فقط');return;}
+  if(!confirm('تأكيد: حذف جميع بيانات '+colName+' نهائياً؟'))return;
+  showFbLoading(true);
+  try {
+    const colRef = db.collection(colName);
+    const snap = await colRef.get();
+    if(snap.empty){
+      showFbLoading(false);
+      toast('info','فارغ','المجموعة فارغة أصلاً');
+      return;
+    }
+    const batch = db.batch();
+    snap.docs.forEach(d=> batch.delete(d.ref));
+    await batch.commit();
+    await refreshData();
+    showFbLoading(false);
+    toast('success','تم الحذف','تم حذف بيانات '+colName+' بنجاح');
+  } catch(e) {
+    showFbLoading(false);
+    toast('error','خطأ','تعذّر الحذف: '+e.message);
+  }
+}
+
+// ── حذف جميع البيانات ───────────────────────────────────────
+async function clearAllData() {
+  if(!IS_ADMIN()){toast('warn','صلاحية','للمدير فقط');return;}
+  if(!confirm('تحذير: سيتم حذف جميع البيانات نهائياً.\nهذا الإجراء لا يمكن التراجع عنه.\n\nهل أنت متأكد؟'))return;
+  if(!confirm('تأكيد أخير: حذف الطلاب والأقسام والمواد والمدربين والتنبيهات والمرفقات؟'))return;
+  showFbLoading(true);
+  try {
+    const cols = ['students','departments','subjects','trainers','notifications','attachments'];
+    for(const colName of cols){
+      const snap = await db.collection(colName).get();
+      if(!snap.empty){
+        const batch = db.batch();
+        snap.docs.forEach(d=> batch.delete(d.ref));
+        await batch.commit();
+      }
+    }
+    await refreshData();
+    showFbLoading(false);
+    toast('success','تم','تم حذف جميع البيانات بنجاح');
+  } catch(e) {
+    showFbLoading(false);
+    toast('error','خطأ','تعذّر الحذف: '+e.message);
+  }
+}
+
 // ── SWIPE GESTURES ───────────────────────────────────────
 (function(){
   let tx=0,ty=0;
@@ -2839,6 +2914,12 @@ function restoreSession() {
     if (!saved) return false;
     const sess = JSON.parse(saved);
     if (!sess || !sess.role || !sess.name) return false;
+    // تحقق من صلاحية الجلسة (24 ساعة للمستخدمين العاديين، 7 أيام للمدير)
+    const maxAge = sess.role==='admin' ? 7*24*60*60*1000 : 24*60*60*1000;
+    if(Date.now() - (sess.ts||0) > maxAge) {
+      localStorage.removeItem('ts_session');
+      return false;
+    }
 
     // استعد بيانات الجلسة
     S.role           = sess.role;
@@ -2868,11 +2949,9 @@ function restoreSession() {
 }
 
 window.addEventListener('load',()=>{
-  // Initialize Firestore + seed default data
-  seedIfEmpty().then(()=>{
-    window._fbReady=true;
-    window._fbReadyCallbacks.forEach(fn=>fn());
-  }).catch(e=>console.warn('seed error',e));
+  // Firebase ready
+  window._fbReady=true;
+  window._fbReadyCallbacks.forEach(fn=>fn());
 
   // ── حاول استعادة الجلسة ──────────────────────────────────
   const hasSession = restoreSession();
@@ -2883,15 +2962,24 @@ window.addEventListener('load',()=>{
     if (hasSession) {
       // ← المستخدم كان مسجلاً — حمّل البيانات مباشرة
       document.getElementById('fbLoading').classList.remove('hide');
-      loadAllData().then(()=>{
-        showFbLoading(false);
-        filteredStudents = allStudents.filter(s=>s.status===curFilter);
-        initAll();
-      }).catch(()=>{
-        showFbLoading(false);
-        allStudents=[]; filteredStudents=[];
-        initAll();
-      });
+      // محاولة مع retry تلقائي
+      const tryLoad = (attempt=1) => {
+        loadAllData().then(()=>{
+          showFbLoading(false);
+          filteredStudents = allStudents.filter(s=>s.status===curFilter);
+          initAll();
+        }).catch(e=>{
+          if(attempt < 3) {
+            setTimeout(()=>tryLoad(attempt+1), 1500*attempt);
+          } else {
+            showFbLoading(false);
+            allStudents=[]; filteredStudents=[];
+            initAll();
+            toast('warn','تنبيه','تعذّر تحميل البيانات — يعمل بدون اتصال');
+          }
+        });
+      };
+      tryLoad();
     } else {
       // ← لا جلسة — اعرض صفحة الدخول
       showFbLoading(false);
