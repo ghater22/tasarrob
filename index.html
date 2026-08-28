@@ -1558,14 +1558,13 @@ async function ensureFirebaseAuthAccount(username, password, allowCreate=false){
   }
 }
 
-async function waitForAuthReady(timeout=8000){
+async function waitForAuthReady(timeout=2500){
   if(auth.currentUser) return auth.currentUser;
-  return await new Promise((resolve,reject)=>{
+  return await new Promise(resolve=>{
     let done=false;
-    const timer=setTimeout(()=>{ if(!done){done=true;unsub();reject(new Error('انتهت مهلة تهيئة المصادقة'));}},timeout);
-    const unsub=auth.onAuthStateChanged(user=>{
-      if(user && !done){done=true;clearTimeout(timer);unsub();resolve(user);}
-    });
+    const finish=(user)=>{ if(done) return; done=true; clearTimeout(timer); try{unsub();}catch(e){} resolve(user||null); };
+    const timer=setTimeout(()=>finish(auth.currentUser||null),timeout);
+    const unsub=auth.onAuthStateChanged(user=>finish(user));
   });
 }
 
@@ -1640,7 +1639,7 @@ const LEGACY_DEMO = {
 
 async function purgeLegacyDemoData(){
   try{
-    if(localStorage.getItem(LEGACY_DEMO.cleanupKey)==='done') return;
+    if(localStorage.getItem(LEGACY_DEMO.cleanupKey)==='done') return false;
     const deleteByIds = async (colRef, ids) => {
       for(let i=0;i<ids.length;i+=400){
         const batch=db.batch();
@@ -1668,9 +1667,11 @@ async function purgeLegacyDemoData(){
       trainers: LEGACY_DEMO.trainerIds.length,
       notifications: legacyNotifs.length
     });
+    return true;
   }catch(e){
     console.warn('Legacy demo cleanup deferred:', e.code || e.message);
     // لا نضع علامة done حتى تكتمل العملية في زيارة لاحقة.
+    return false;
   }
 }
 
@@ -1810,7 +1811,6 @@ function showFbLoading(show){
 // ── Load ALL data from Firestore ─────────────────────────────
 async function loadAllData(){
   try {
-    await purgeLegacyDemoData();
     const [students, depts, subjects, trainers, users, notifs, atts] = await Promise.all([
       fsGet(COL.students),
       fsGet(COL.depts),
@@ -3104,44 +3104,45 @@ window.addEventListener('load',()=>{
   window._fbReady=true;
   window._fbReadyCallbacks.forEach(fn=>fn());
 
-  // ── حاول استعادة الجلسة ──────────────────────────────────
   const hasSession = restoreSession();
 
-  // إظهار التطبيق مباشرة بعد جاهزية DOM واستعادة الجلسة — بدون انتظار زمني ثابت
+  // افتح التطبيق فوراً: لا ننتظر Firebase ولا نضع طبقة تحميل فوق الواجهة.
   requestAnimationFrame(()=>{
     document.getElementById('loader').classList.add('out');
 
-    if (hasSession) {
-      // ← المستخدم كان مسجلاً — حمّل البيانات مباشرة
-      document.getElementById('fbLoading').classList.remove('hide');
-      // محاولة مع retry تلقائي
-      const tryLoad = async (attempt=1) => {
-        try {
-          // انتظر استعادة Firebase Auth قبل أول قراءة؛ وإلا قد تُرفض القراءة ثم تُمسح البيانات من الواجهة.
-          if(S.role !== 'admin' || !auth.currentUser) await waitForAuthReady();
+    if (!hasSession) {
+      document.getElementById('fbLoading').classList.add('hide');
+      document.getElementById('login-page').style.display='flex';
+      return;
+    }
+
+    document.getElementById('login-page').style.display='none';
+    document.getElementById('app').classList.add('on');
+    document.getElementById('fbLoading').classList.add('hide');
+
+    // ابدأ المزامنة في الخلفية بعد ظهور الواجهة مباشرة.
+    const startupSync = async ()=>{
+      try {
+        if(!auth.currentUser) await waitForAuthReady(2500);
+        await loadAllData();
+        filteredStudents = allStudents.filter(s=>s.status===curFilter);
+        initAll();
+
+        // تنظيف البيانات التجريبية القديمة في الخلفية فقط، وبعد تحميل البيانات الحقيقية.
+        const cleaned = await purgeLegacyDemoData();
+        if(cleaned){
           await loadAllData();
-          showFbLoading(false);
           filteredStudents = allStudents.filter(s=>s.status===curFilter);
           initAll();
-        } catch(e) {
-          if(attempt < 3) {
-            setTimeout(()=>tryLoad(attempt+1), 1500*attempt);
-          } else {
-            showFbLoading(false);
-            // لا تمسح البيانات الحالية عند فشل الشبكة/الصلاحيات.
-            // البيانات الموجودة في الواجهة قد تكون من Firestore cache أو من جلسة سابقة.
-            filteredStudents = allStudents.filter(s=>s.status===curFilter);
-            initAll();
-            toast('warn','تعذّر التحديث','لم نتمكن من تحديث البيانات من الخادم، وتم الاحتفاظ بالبيانات الحالية.');
-          }
         }
-      };
-      tryLoad();
-    } else {
-      // ← لا جلسة — اعرض صفحة الدخول
-      showFbLoading(false);
-      document.getElementById('login-page').style.display='flex';
-    }
+      } catch(e) {
+        console.warn('Startup sync failed:',e);
+        // لا نعرض طبقة انتظار؛ أبقِ الواجهة سريعة وأظهر تنبيهًا غير حاجب.
+        toast('warn','المزامنة','تعذّر تحديث البيانات من الخادم حالياً. يمكنك المحاولة من زر التحديث.');
+      }
+    };
+
+    setTimeout(startupSync,0);
   });
 });
 </script>
