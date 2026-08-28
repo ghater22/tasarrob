@@ -1609,46 +1609,70 @@ let atts_list=[], pendFile=null;
 const STATUS_MAP = { deprived:'محروم', resolved:'تمت المعالجة' };
 const STATUS_CSS = { deprived:'deprived', resolved:'resolved' };
 
-let DEPTS = [
-  {id:'it',  name:'تقنية المعلومات',  icon:'fas fa-laptop-code',     color:'#3B82F6', cls:'dc0', students:92, cnt:18},
-  {id:'elec',name:'الإلكترونيات',      icon:'fas fa-microchip',        color:'#F59E0B', cls:'dc1', students:58, cnt:10},
-  {id:'mech',name:'الميكانيكا',        icon:'fas fa-wrench',           color:'#EF4444', cls:'dc2', students:47, cnt:8},
-  {id:'buss',name:'إدارة الأعمال',     icon:'fas fa-briefcase',        color:'#22C55E', cls:'dc3', students:63, cnt:6},
-  {id:'arch',name:'الهندسة المعمارية', icon:'fas fa-drafting-compass', color:'#00B5B5', cls:'dc4', students:32, cnt:3},
-  {id:'auto',name:'تقنية السيارات',    icon:'fas fa-car-engine',       color:'#A855F7', cls:'dc5', students:20, cnt:2},
-];
-let SUBJECTS = [
-  {id:'s1',name:'الشبكات المتقدمة',   dept:'تقنية المعلومات',  icon:'fas fa-network-wired', color:'#3B82F6'},
-  {id:'s2',name:'برمجة الويب',         dept:'تقنية المعلومات',  icon:'fas fa-code',           color:'#3B82F6'},
-  {id:'s3',name:'أمن المعلومات',       dept:'تقنية المعلومات',  icon:'fas fa-shield-halved',  color:'#3B82F6'},
-  {id:'s4',name:'قواعد البيانات',      dept:'تقنية المعلومات',  icon:'fas fa-database',       color:'#3B82F6'},
-  {id:'s5',name:'أنظمة التشغيل',      dept:'الإلكترونيات',     icon:'fas fa-microchip',      color:'#F59E0B'},
-  {id:'s6',name:'إدارة المشاريع',     dept:'إدارة الأعمال',    icon:'fas fa-diagram-project',color:'#22C55E'},
-  {id:'s7',name:'الدوائر الإلكترونية',dept:'الإلكترونيات',     icon:'fas fa-bolt',           color:'#F59E0B'},
-  {id:'s8',name:'ميكانيكا السيارات',  dept:'تقنية السيارات',   icon:'fas fa-car-engine',     color:'#A855F7'},
-];
-let TRAINERS = [
-  {id:'t1',name:'م. سعيد القحطاني', dept:'تقنية المعلومات',  subject:'الشبكات المتقدمة',   spec:'شبكات وأمن'},
-  {id:'t2',name:'م. منير العتيبي',  dept:'الإلكترونيات',     subject:'الدوائر الإلكترونية',spec:'دوائر إلكترونية'},
-  {id:'t3',name:'م. رامي الشهري',   dept:'الميكانيكا',       subject:'ميكانيكا السيارات',  spec:'ميكانيكا'},
-  {id:'t4',name:'م. أشرف الغامدي', dept:'إدارة الأعمال',    subject:'إدارة المشاريع',     spec:'إدارة مشاريع'},
-  {id:'t5',name:'م. طارق السالمي',  dept:'تقنية المعلومات',  subject:'برمجة الويب',        spec:'برمجة ويب'},
-  {id:'t6',name:'م. بشير المطيري',  dept:'تقنية السيارات',   subject:'ميكانيكا السيارات',  spec:'صيانة'},
-];
+let DEPTS = [];
+let SUBJECTS = [];
+let TRAINERS = [];
 const REASONS=['غيابات متكررة','ضعف أكاديمي','مخالفة تدريبية','عدم الالتزام','أسباب صحية','أسباب عائلية'];
 const STATUSES=['deprived','deprived','deprived','resolved'];
 const NAMES=[];// removed
 
-let NOTIFS = [
-  {cls:'red',  icon:'fa-user-slash',             title:'طلاب محرومون يحتاجون متابعة',       desc:'تجاوزوا الحد الأقصى للغيابات المسموح به', time:'منذ ١٠ دقائق',unread:true},
-  {cls:'green',icon:'fa-triangle-exclamation',  title:'تحذير: ٦ طلاب تجاوزوا ٧٠٪ من الحد', desc:'قسم الإلكترونيات — يستوجب تدخلاً فورياً', time:'منذ ٤٥ دقيقة',unread:true},
-  {cls:'teal', icon:'fa-file-chart-column',     title:'التقرير الأسبوعي جاهز',              desc:'ملخص شامل للفصل الدراسي الحالي',           time:'منذ ٢ ساعة',  unread:true},
-  {cls:'red',  icon:'fa-clock',                 title:'متابعة حالات الميكانيكا مطلوبة',    desc:'٣ طلاب لم تتم متابعتهم منذ أسبوع',         time:'منذ ٥ ساعات',unread:true},
-  {cls:'amber',icon:'fa-calendar-xmark',        title:'١٢ غياباً جديداً اليوم',             desc:'موزعة على مختلف الأقسام',                   time:'اليوم ٨:٣٠', unread:true},
-  {cls:'green',icon:'fa-circle-check',          title:'تسوية ٣ حالات بنجاح',                desc:'تمت المعالجة بعد موافقة الإدارة',           time:'أمس',         unread:false},
-  {cls:'teal', icon:'fa-calendar-day',          title:'اجتماع مجلس الإرشاد — الأحد',       desc:'١٠:٠٠ ص — مناقشة حالات الحرمان',           time:'منذ يومين',   unread:false},
-  {cls:'red',  icon:'fa-bell',                  title:'نسبة التسرب تجاوزت ١٥٪',            desc:'الحد المعتمد ٢٠٪ — يستلزم اجتماعاً عاجلاً',time:'منذ ٣ أيام',  unread:false},
-];
+let NOTIFS = [];
+
+// البيانات التجريبية القديمة التي كانت مضمّنة في النسخ السابقة.
+// تُحذف مرة واحدة من Firestore حسب المعرّفات/الأسماء المعروفة فقط،
+// دون المساس بأي سجلات جديدة ينشئها المستخدم.
+const LEGACY_DEMO = {
+  cleanupKey: 'tasarrob_legacy_demo_cleanup_v1',
+  deptIds: ['it','elec','mech','buss','arch','auto'],
+  subjectIds: ['s1','s2','s3','s4','s5','s6','s7','s8'],
+  trainerIds: ['t1','t2','t3','t4','t5','t6'],
+  notificationTitles: [
+    'طلاب محرومون يحتاجون متابعة',
+    'تحذير: ٦ طلاب تجاوزوا ٧٠٪ من الحد',
+    'التقرير الأسبوعي جاهز',
+    'متابعة حالات الميكانيكا مطلوبة',
+    '١٢ غياباً جديداً اليوم',
+    'تسوية ٣ حالات بنجاح',
+    'اجتماع مجلس الإرشاد — الأحد',
+    'نسبة التسرب تجاوزت ١٥٪'
+  ]
+};
+
+async function purgeLegacyDemoData(){
+  try{
+    if(localStorage.getItem(LEGACY_DEMO.cleanupKey)==='done') return;
+    const deleteByIds = async (colRef, ids) => {
+      for(let i=0;i<ids.length;i+=400){
+        const batch=db.batch();
+        ids.slice(i,i+400).forEach(id=>batch.delete(colRef.doc(String(id))));
+        await batch.commit();
+      }
+    };
+
+    await deleteByIds(COL.depts, LEGACY_DEMO.deptIds);
+    await deleteByIds(COL.subjects, LEGACY_DEMO.subjectIds);
+    await deleteByIds(COL.trainers, LEGACY_DEMO.trainerIds);
+
+    const nsnap = await COL.notifs.get();
+    const legacyNotifs = nsnap.docs.filter(d=>LEGACY_DEMO.notificationTitles.includes(String(d.data()?.title||'')));
+    for(let i=0;i<legacyNotifs.length;i+=400){
+      const batch=db.batch();
+      legacyNotifs.slice(i,i+400).forEach(d=>batch.delete(d.ref));
+      await batch.commit();
+    }
+
+    localStorage.setItem(LEGACY_DEMO.cleanupKey,'done');
+    console.info('Legacy demo data cleanup completed:', {
+      departments: LEGACY_DEMO.deptIds.length,
+      subjects: LEGACY_DEMO.subjectIds.length,
+      trainers: LEGACY_DEMO.trainerIds.length,
+      notifications: legacyNotifs.length
+    });
+  }catch(e){
+    console.warn('Legacy demo cleanup deferred:', e.code || e.message);
+    // لا نضع علامة done حتى تكتمل العملية في زيارة لاحقة.
+  }
+}
 
 // ── GENERATE STUDENTS ────────────────────────────────────────
 // ── AUTH ─────────────────────────────────────────────────────
@@ -1746,9 +1770,8 @@ function doLogin(){
     toast('success','مرحباً',`أهلاً ${acc.name||r[0]} — تسرب`);
   }).catch(e=>{
     showFbLoading(false);
-    toast('warn','تنبيه','تعذّر تحميل البيانات — وضع عدم الاتصال');
-    allStudents=[];
-    filteredStudents=[];
+    toast('warn','تعذّر تحميل البيانات','تم الاحتفاظ بالبيانات الحالية ولن تُمسح بسبب فشل الاتصال');
+    // لا تمسح الحالة الحالية عند فشل الشبكة.
     initAll();
   });
   }); // end findAccountAsync
@@ -1787,6 +1810,7 @@ function showFbLoading(show){
 // ── Load ALL data from Firestore ─────────────────────────────
 async function loadAllData(){
   try {
+    await purgeLegacyDemoData();
     const [students, depts, subjects, trainers, users, notifs, atts] = await Promise.all([
       fsGet(COL.students),
       fsGet(COL.depts),
@@ -2176,7 +2200,8 @@ function delSt(idx){
     if(!ok) return;
     allStudents.splice(idx,1); applyF();
     document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
-    updKPIs(); toast('success','تم الحذف','تم حذف السجل بنجاح');
+    updKPIs(); rndrDashTbl(); rndrAlerts();
+    toast('success','تم الحذف','تم حذف السجل من قاعدة البيانات بنجاح');
   });
 }
 function doAlert(){const s=curIdx>=0?allStudents[curIdx]:null;toast('success','تنبيه',`تم إرسال تنبيه بشأن ${s?.name||'الطالب'}`);closeM('viewModal');}
