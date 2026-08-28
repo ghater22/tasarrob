@@ -792,6 +792,32 @@ body.sb-open{overflow:hidden}
 #m_name:focus + *, #m_id:focus { border-color: var(--teal); }
 #idDupWarn { z-index:10; background:rgba(255,255,255,.95); padding:2px 6px; border-radius:4px; border:1px solid var(--amber); }
 
+
+/* ── Skeleton loading — يمنع رؤية بيانات قديمة ── */
+#app.loading-data .kpi-wrap,
+#app.loading-data .dash-tbl,
+#app.loading-data .chart-card,
+#app.loading-data .st-table,
+#app.loading-data .st-cards {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s ease;
+}
+#app.loading-data .kpi-card {
+  background: linear-gradient(90deg, var(--bg) 25%, var(--border) 50%, var(--bg) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+#app.loading-data .kpi-card .kv,
+#app.loading-data .kpi-card .kl,
+#app.loading-data .kpi-card .ks {
+  opacity: 0;
+}
+
 </style>
 
 <!-- Firebase SDK -->
@@ -1683,6 +1709,8 @@ function doLogin(){
   // Set session
   S.role=acc.role; S.name=acc.name; S.trainerSubject=acc.subject||''; S.userId=acc.id||'admin';
   // ── حفظ الجلسة في localStorage ──────────────────────────
+  // احذف أي بيانات قديمة مخزّنة (سبب ظهور بيانات منتهية)
+  ['ts_students','ts_depts','ts_subjects','ts_users','ts_cache'].forEach(k=>localStorage.removeItem(k));
   localStorage.setItem('ts_session', JSON.stringify({
     role: acc.role,
     name: acc.name,
@@ -3046,6 +3074,7 @@ function restoreSession() {
     document.getElementById('app').classList.add('on');
     applyRoleUI();
     curPage=1;
+    // لا نستدعي initAll هنا — ننتظر تحميل البيانات من Firestore
     return true;
   } catch(e) {
     console.warn('restoreSession error',e);
@@ -3066,23 +3095,27 @@ window.addEventListener('load',()=>{
     document.getElementById('loader').classList.add('out');
 
     if (hasSession) {
-      // ← المستخدم كان مسجلاً — حمّل البيانات مباشرة
-      document.getElementById('fbLoading').classList.remove('hide');
-      // محاولة مع retry تلقائي
+      // ← المستخدم كان مسجلاً — أخفِ البيانات حتى يكتمل التحميل
+      const appEl = document.getElementById('app');
+      appEl.classList.add('loading-data'); // يخفي KPIs والجداول
+      showFbLoading(true);
+
       const tryLoad = (attempt=1) => {
-        console.log('Loading data from Firestore, attempt:', attempt);
+        console.log('Loading from Firestore, attempt:', attempt);
         loadAllData().then(()=>{
+          // اكتمل التحميل — أظهر البيانات الجديدة فقط
+          appEl.classList.remove('loading-data');
           showFbLoading(false);
-          console.log('Data loaded:', allStudents.length, 'students,', DEPTS.length, 'depts');
+          console.log('✓ Loaded:', allStudents.length, 'students');
           filteredStudents = allStudents.filter(s=>s.status===curFilter);
           initAll();
           startAutoSync();
         }).catch(e=>{
           console.error('loadAllData error:', e.code, e.message);
           if(attempt < 4) {
-            console.log('Retrying in', 1500*attempt, 'ms');
             setTimeout(()=>tryLoad(attempt+1), 1500*attempt);
           } else {
+            appEl.classList.remove('loading-data');
             showFbLoading(false);
             allStudents=[]; filteredStudents=[];
             initAll();
