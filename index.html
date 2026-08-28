@@ -628,6 +628,11 @@ td{padding:9px 10px;font-size:.78rem}
   .pc{padding:0!important}
 }
 
+/* ─── INDIVIDUAL STUDENT REPORT PRINT ─── */
+@media print{
+  .student-print-sheet{display:block!important}
+}
+.student-print-sheet{display:none}
 /* ─── TOUCH IMPROVEMENTS ─── */
 @media(hover:none) and (pointer:coarse){
   /* Larger tap targets */
@@ -987,7 +992,7 @@ const firebaseConfig = {
       <div class="tb-crumb" id="pgCrumb">الرئيسية / لوحة التحكم</div>
     </div>
     <div class="tb-actions">
-      <div class="srch"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input type="text" id="gQ" placeholder="بحث سريع... (Ctrl+K)" oninput="gSrch(this.value)"></div>
+      <div class="srch"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input type="text" id="gQ" placeholder="بحث سريع بالاسم أو الرقم التدريبي..." oninput="gSrch(this.value)"></div>
       <button class="hbtn" onclick="showV('notifications',document.querySelectorAll('.ni')[5])"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="ndot" id="ndot"></span></button>
       <button class="hbtn" onclick="window.print()"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span></button>
       <button class="hbtn" onclick="openIdSearch()" title="بحث بالرقم التدريبي" style="position:relative">
@@ -1056,7 +1061,7 @@ const firebaseConfig = {
   <div class="t-card">
     <div class="t-hd">
       <div class="t-count">العدد: <strong id="stCount">0</strong></div>
-      <div class="srch" style="min-width:185px"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input type="text" id="tblQ" placeholder="بحث..." oninput="srchSt(this.value)"></div>
+      <div class="srch" style="min-width:185px"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input type="text" id="tblQ" placeholder="بحث بالاسم أو الرقم التدريبي..." oninput="srchSt(this.value)"></div>
     </div>
     <div class="tbl-wrap">
       <table><thead><tr><th>#</th><th>الطالب</th><th class="col-hide-mobile">القسم</th><th class="col-hide-mobile">المادة</th><th>الغيابات</th><th class="col-hide-mobile">السبب</th><th class="col-hide-mobile">المدرب</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody id="stBody"></tbody></table>
@@ -1363,7 +1368,7 @@ const firebaseConfig = {
 <div class="mov" id="viewModal">
   <div class="modal"><div class="mhd"><div class="mttl">ملف الطالب</div><button class="mclose" onclick="closeM('viewModal')"><span class="svg-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></button></div>
   <div class="mbody" id="vBody"></div>
-  <div class="mft"><button class="btn btn-outline" onclick="closeM('viewModal')">إغلاق</button><button class="btn btn-outline" onclick="doAlert()"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span> تنبيه</button><button class="btn btn-teal" id="veBtn" onclick=""><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></span> تعديل</button></div></div>
+  <div class="mft"><button class="btn btn-outline" onclick="closeM('viewModal')">إغلاق</button><button class="btn btn-outline" onclick="printStudentReport(curIdx)"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span> طباعة التقرير</button><button class="btn btn-outline" onclick="doAlert()"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span> تنبيه</button><button class="btn btn-teal" id="veBtn" onclick=""><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></span> تعديل</button></div></div>
 </div>
 
 <!-- MGMT MODAL -->
@@ -1897,7 +1902,7 @@ function updKPIs(){
 function rndrDashTbl(){
   const top=allStudents.filter(s=>s.status==='deprived').slice(0,5);
   document.getElementById('dashTbl').innerHTML=top.map(s=>`
-    <tr><td><div class="scell"><div class="sav" style="background:${s.deptColor}">${s.name[0]}</div><div><div class="sname">${escapeHTML(s.name)}</div><div class="sid">${escapeHTML(s.id)}</div></div></div></td>
+    <tr><td><div class="scell"><div class="sav" style="background:${s.deptColor}">${s.name[0]}</div><div><div class="sname">${escapeHTML(s.name)}</div><div class="sid">الرقم التدريبي: ${escapeHTML(getTrainingId(s)||'غير مضاف')}</div></div></div></td>
     <td><span class="dc ${s.deptCls}">${escapeHTML(s.dept)}</span></td>
     <td style="font-size:.76rem;color:var(--muted)">${escapeHTML(s.subject)}</td>
     <td><span class="sbadge ${STATUS_CSS[s.status]}">${STATUS_MAP[s.status]}</span></td></tr>`).join('');
@@ -1969,6 +1974,23 @@ function initRptCharts(){
 }
 function expChart(id){const c=document.getElementById(id);const a=document.createElement('a');a.download=`tasarrob-${id}.png`;a.href=c.toDataURL();a.click();toast('success','تصدير','تم تنزيل الرسم البياني');}
 
+// ── TRAINING ID HELPERS ─────────────────────────────────────
+function normalizeTrainingId(value){
+  return String(value||'')
+    .trim()
+    .replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
+    .replace(/[\s\-]/g, '');
+}
+function getTrainingId(student){
+  if(!student) return '';
+  const explicit = String(student.trainingId||'').trim();
+  if(explicit) return explicit;
+  // Keep compatibility with any legacy record that used a non-generated id.
+  const legacy = String(student.id||'').trim();
+  return legacy.startsWith('st_') ? '' : legacy;
+}
+
 // ── STUDENTS TABLE ────────────────────────────────────────────
 function rndrStudents(){
   const start=(curPage-1)*PAGE;
@@ -2020,14 +2042,28 @@ function applyF(stOvr,dOvr){
 }
 function srchSt(q){
   const d=document.getElementById('deptFlt')?.value||'';
-  let base=q?allStudents.filter(s=>(s.name.includes(q)||s.id.includes(q)||s.dept.includes(q)||s.subject.includes(q))&&(!d||s.dept===d)):allStudents.filter(s=>s.status===curFilter&&(!d||s.dept===d));
+  const nq=normalizeTrainingId(q);
+  let base=q?allStudents.filter(s=>{
+    const name=String(s.name||'').toLowerCase();
+    const training=normalizeTrainingId(getTrainingId(s)).toLowerCase();
+    const legacy=normalizeTrainingId(s.id).toLowerCase();
+    const query=String(q||'').trim().toLowerCase();
+    return (name.includes(query)||training.includes(nq.toLowerCase())||legacy.includes(nq.toLowerCase())||String(s.dept||'').includes(query)||String(s.subject||'').includes(query)) && (!d||s.dept===d);
+  }):allStudents.filter(s=>s.status===curFilter&&(!d||s.dept===d));
   if(IS_TRAINER())base=base.filter(s=>s.subject===S.trainerSubject);
   filteredStudents=base; curPage=1; rndrStudents(); rndrPag();
 }
 function gSrch(q){
   if(!q)return;
   showV('students',document.querySelectorAll('.ni')[1]);
-  let base=allStudents.filter(s=>s.name.includes(q)||s.id.includes(q)||s.dept.includes(q)||s.subject.includes(q));
+  const query=String(q||'').trim().toLowerCase();
+  const nq=normalizeTrainingId(query);
+  let base=allStudents.filter(s=>
+    String(s.name||'').toLowerCase().includes(query)||
+    normalizeTrainingId(getTrainingId(s)).toLowerCase().includes(nq.toLowerCase())||
+    String(s.dept||'').toLowerCase().includes(query)||
+    String(s.subject||'').toLowerCase().includes(query)
+  );
   if(IS_TRAINER())base=base.filter(s=>s.subject===S.trainerSubject);
   filteredStudents=base; curPage=1; rndrStudents(); rndrPag();
 }
@@ -2079,7 +2115,7 @@ function editSt(idx){
   curIdx=idx;
   document.getElementById('stMttl').textContent='تعديل بيانات الطالب';
   document.getElementById('m_name').value=s.name;
-  document.getElementById('m_id').value=s.id;
+  document.getElementById('m_id').value=getTrainingId(s);
   document.getElementById('m_spec').value='';
   document.getElementById('m_notes').value=s.notes||'';
   document.getElementById('m_status').value=s.status;
@@ -2101,16 +2137,21 @@ function editSt(idx){
 async function saveSt(){
   if(IS_COORD()){toast('warn','صلاحية','أنت في وضع اطلاع فقط');return;}
   const name=document.getElementById('m_name').value.trim();
-  const id=document.getElementById('m_id').value.trim();
-  if(!name||!id){toast('error','خطأ','أدخل الحقول الإلزامية');return;}
+  const trainingIdRaw=document.getElementById('m_id').value.trim();
+  const trainingId=trainingIdRaw.replace(/\s+/g,' ').trim();
+  if(!name||!trainingId){toast('error','خطأ','أدخل اسم المتدرب والرقم التدريبي');return;}
+  const normalizedTrainingId=normalizeTrainingId(trainingId);
+  if(!normalizedTrainingId){toast('error','خطأ','أدخل رقمًا تدريبيًا صالحًا');return;}
+  const duplicate=allStudents.some((s,i)=>i!==curIdx && normalizeTrainingId(getTrainingId(s))===normalizedTrainingId);
+  if(duplicate){toast('error','الرقم مستخدم','الرقم التدريبي مضاف بالفعل لمتدرب آخر');return;}
   const deptN=document.getElementById('m_dept').value;
   const dept=DEPTS.find(d=>d.name===deptN)||DEPTS[0];
   const subj=document.getElementById('m_subject').value;
   if(IS_TRAINER()&&subj!==S.trainerSubject){toast('error','صلاحية','لا يمكنك إضافة طالب لمادة أخرى');return;}
   const totalSessions=parseInt(document.getElementById('m_total')?.value)||100;
-  const deprivationCount=(allStudents.filter(s=>s.id===id&&s.status==='deprived').length)||0;
+  const deprivationCount=(allStudents.filter(s=>normalizeTrainingId(getTrainingId(s))===normalizedTrainingId&&s.status==='deprived').length)||0;
   const obj={
-    id,name,dept:dept.name,deptCls:dept.cls,deptColor:dept.color,
+    trainingId,name,dept:dept.name,deptCls:dept.cls,deptColor:dept.color,
     subject:subj,absences:absCount,totalSessions,
     absPct:Math.round(absCount/totalSessions*100),
     status:document.getElementById('m_status').value,
@@ -2187,6 +2228,90 @@ function viewSt(idx){
   document.getElementById('veBtn').disabled=!canMgr||IS_COORD();
   document.getElementById('veBtn').onclick=canMgr&&!IS_COORD()?()=>{closeM('viewModal');editSt(idx);}:null;
   openModal('viewModal');
+}
+function printStudentReport(idx){
+  const s=allStudents[idx];
+  if(!s){toast('error','التقرير','تعذر العثور على بيانات المتدرب');return;}
+
+  const p1=s.pledge1||{};
+  const p2=s.pledge2||{};
+  const p1Done=!!p1.done, p2Done=!!p2.done;
+
+  let pledgeSummary='لم يحصل على أي تعهد مسجل';
+  let pledgeClass='neutral';
+  if(p1Done && p2Done){
+    pledgeSummary='حصل على التعهد الأول والتعهد الثاني الأخير';
+    pledgeClass='danger';
+  }else if(p1Done){
+    pledgeSummary='حصل على التعهد الأول فقط';
+    pledgeClass='warn';
+  }else if(p2Done){
+    pledgeSummary='تم تسجيل التعهد الثاني الأخير دون اكتمال التعهد الأول';
+    pledgeClass='danger';
+  }else if(p1.date||p2.date){
+    pledgeSummary='يوجد تعهد مسجل ولم يكتمل تأكيد التوقيع';
+    pledgeClass='warn';
+  }
+
+  const pct=absPct(s);
+  const safe=v=>escapeHTML(v==null?'—':String(v));
+  const dateNow=new Date().toLocaleDateString('ar-SA');
+  const pledgeState=(done,date)=>done?'تم التوقيع':date?'مسجل دون تأكيد التوقيع':'لم يحصل';
+
+  const w=window.open('','_blank','width=900,height=900');
+  if(!w){toast('error','التقرير','يرجى السماح بالنوافذ المنبثقة لطباعة التقرير');return;}
+
+  const reportHtml = `
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<title>تقرير متدرب - ${safe(s.name)}</title>
+<style>
+*{box-sizing:border-box}body{font-family:Arial,Tahoma,sans-serif;color:#132238;margin:0;background:#fff;line-height:1.7}
+.page{width:100%;max-width:850px;margin:0 auto;padding:32px}.head{text-align:center;border-bottom:3px solid #0b7d83;padding-bottom:16px;margin-bottom:22px}
+.brand{font-size:22px;font-weight:800}.college{font-size:13px;color:#667085}.title{font-size:20px;font-weight:800;margin-top:10px}.meta{font-size:11px;color:#667085;margin-top:4px}
+.card{border:1px solid #d9e1ea;border-radius:10px;padding:16px;margin-bottom:14px}.card-title{font-weight:800;font-size:14px;margin-bottom:10px;color:#0b7d83}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.item{padding:9px 10px;background:#f7f9fb;border-radius:7px}.label{font-size:11px;color:#667085}.value{font-size:14px;font-weight:700}
+.pledge-summary{padding:16px;border-radius:9px;text-align:center;font-size:16px;font-weight:800;border:2px solid}
+.pledge-summary.danger{color:#b42318;background:#fef3f2;border-color:#fecdca}.pledge-summary.warn{color:#9a6700;background:#fffaeb;border-color:#fedf89}.pledge-summary.neutral{color:#475467;background:#f2f4f7;border-color:#d0d5dd}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #d9e1ea;padding:8px;text-align:right}th{background:#f7f9fb}
+.footer{margin-top:22px;display:flex;justify-content:space-between;font-size:11px;color:#667085;border-top:1px solid #d9e1ea;padding-top:10px}.print-note{font-size:10px;color:#667085;margin-top:10px}
+@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.page{padding:15mm}.no-print{display:none}}
+</style></head><body><div class="page">
+<div class="head"><div class="brand">تسرب</div><div class="college">الكلية التقنية بشرورة</div><div class="title">تقرير فردي عن حالة المتدرب</div><div class="meta">تاريخ التقرير: ${safe(dateNow)}</div></div>
+
+<div class="card"><div class="card-title">بيانات المتدرب</div><div class="grid">
+<div class="item"><div class="label">اسم المتدرب</div><div class="value">${safe(s.name)}</div></div>
+<div class="item"><div class="label">الرقم التدريبي</div><div class="value">${safe(s.trainingId||s.studentId||s.id)}</div></div>
+<div class="item"><div class="label">القسم</div><div class="value">${safe(s.dept)}</div></div>
+<div class="item"><div class="label">التخصص</div><div class="value">${safe(s.spec)}</div></div>
+<div class="item"><div class="label">المادة</div><div class="value">${safe(s.subject)}</div></div>
+<div class="item"><div class="label">المدرب</div><div class="value">${safe(s.trainer)}</div></div>
+<div class="item"><div class="label">سبب الحرمان</div><div class="value">${safe(s.reason)}</div></div>
+<div class="item"><div class="label">الحالة الحالية</div><div class="value">${safe(STATUS_MAP[s.status]||s.status)}</div></div>
+</div></div>
+
+<div class="card"><div class="card-title">الحضور والغياب</div><div class="grid">
+<div class="item"><div class="label">عدد الغيابات</div><div class="value">${safe(s.absences||0)}</div></div>
+<div class="item"><div class="label">إجمالي الحصص</div><div class="value">${safe(s.totalSessions||100)}</div></div>
+<div class="item"><div class="label">نسبة الغياب</div><div class="value">${safe(pct)}%</div></div>
+<div class="item"><div class="label">تاريخ التسجيل</div><div class="value">${safe(s.date)}</div></div>
+</div></div>
+
+<div class="card"><div class="card-title">النتيجة الرسمية للتعهدات</div>
+<div class="pledge-summary ${pledgeClass}">${safe(pledgeSummary)}</div>
+<div style="margin-top:12px"><table><thead><tr><th>نوع التعهد</th><th>التاريخ</th><th>الحالة</th></tr></thead><tbody>
+<tr><td>التعهد الأول</td><td>${safe(p1.date||'—')}</td><td>${safe(pledgeState(p1Done,p1.date))}</td></tr>
+<tr><td>التعهد الثاني الأخير</td><td>${safe(p2.date||'—')}</td><td>${safe(pledgeState(p2Done,p2.date))}</td></tr>
+</tbody></table></div>
+<div class="print-note">يعتمد تحديد حصول المتدرب على التعهد في هذا التقرير على حالة «تم التوقيع» المسجلة في ملفه.</div>
+</div>
+
+${s.notes?'<div class="card"><div class="card-title">ملاحظات</div><div>'+safe(s.notes)+'</div></div>':''}
+<div class="footer"><span>نظام تسرب — لرصد المتدربين المحرومين</span><span>الكلية التقنية بشرورة</span></div>
+</div><script>window.onload=function(){setTimeout(function(){window.print()},250)};<\/script></body></html>`;
+
+  w.document.open();
+  w.document.write(reportHtml);
+  w.document.close();
 }
 function delSt(idx){
   if(IS_COORD()){toast('warn','صلاحية','أنت في وضع اطلاع فقط');return;}
@@ -2524,8 +2649,10 @@ function doIdSearch(q){
   if(!q){el.innerHTML='';return;}
 
   // البحث في جميع الطلاب (محرومين وغير محرومين)
+  const nq=normalizeTrainingId(q);
   const results=allStudents.filter(s=>
-    s.id.includes(q)||s.name.includes(q)
+    String(s.name||'').toLowerCase().includes(String(q).toLowerCase())||
+    normalizeTrainingId(getTrainingId(s)).toLowerCase().includes(nq.toLowerCase())
   );
 
   if(!results.length){
@@ -2551,7 +2678,7 @@ function doIdSearch(q){
         <div class="sav" style="width:46px;height:46px;font-size:1.1rem;background:${s.deptColor};flex-shrink:0">${s.name[0]}</div>
         <div style="flex:1">
           <div style="font-weight:800;font-size:.95rem;color:var(--navy)">${escapeHTML(s.name)}</div>
-          <div style="font-size:.76rem;color:var(--muted);margin-top:1px">الرقم: <strong>${escapeHTML(s.id)}</strong> · ${escapeHTML(s.dept)}</div>
+          <div style="font-size:.76rem;color:var(--muted);margin-top:1px">الرقم التدريبي: <strong>${escapeHTML(getTrainingId(s)||'غير مضاف')}</strong> · ${escapeHTML(s.dept)}</div>
           <div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">
             <span class="sbadge ${STATUS_CSS[s.status]}">${STATUS_MAP[s.status]}</span>
             ${depCount>1||depHistory>1?`<span style="background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25);padding:2px 8px;border-radius:20px;font-size:.69rem;font-weight:700">⚠️ تكرر الحرمان ${Math.max(depCount,depHistory)} مرة</span>`:''}
