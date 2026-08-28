@@ -818,6 +818,26 @@ body.sb-open{overflow:hidden}
   opacity: 0;
 }
 
+
+/* ── Inline ID Search Dropdown ── */
+#inlineSearchDrop .isd-item {
+  display:flex;align-items:center;gap:10px;padding:10px 12px;
+  cursor:pointer;transition:background .12s;border-bottom:1px solid var(--border);
+}
+#inlineSearchDrop .isd-item:last-child{border-bottom:none}
+#inlineSearchDrop .isd-item:hover{background:rgba(0,181,181,.07)}
+#inlineSearchDrop .isd-av{
+  width:34px;height:34px;border-radius:50%;display:flex;align-items:center;
+  justify-content:center;font-weight:800;font-size:.85rem;color:white;flex-shrink:0;
+}
+#inlineSearchDrop .isd-info{flex:1;min-width:0}
+#inlineSearchDrop .isd-name{font-weight:700;font-size:.84rem;color:var(--navy);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#inlineSearchDrop .isd-meta{font-size:.7rem;color:var(--muted);margin-top:1px}
+#inlineSearchDrop .isd-badge{font-size:.68rem;font-weight:700;padding:2px 7px;border-radius:20px;flex-shrink:0}
+#inlineSearchDrop .isd-badge.dep{background:rgba(239,68,68,.12);color:var(--red)}
+#inlineSearchDrop .isd-badge.res{background:rgba(34,197,94,.12);color:var(--green)}
+#inlineSearchDrop .isd-empty{padding:14px;text-align:center;font-size:.8rem;color:var(--muted)}
+
 </style>
 
 <!-- Firebase SDK -->
@@ -1327,10 +1347,34 @@ const firebaseConfig = {
           <div style="display:flex;gap:8px;align-items:center">
             <input class="fc2" id="m_name" placeholder="اسم المتدرب" style="flex:2;min-width:0">
             <div style="position:relative;flex:1;min-width:0">
-              <input class="fc2" id="m_id" placeholder="الرقم التدريبي" style="padding-left:32px;direction:ltr;text-align:left"
-                oninput="chkDupId(this.value)">
+              <input class="fc2" id="m_id" placeholder="الرقم التدريبي"
+                style="padding-left:36px;padding-right:32px;direction:ltr;text-align:left"
+                oninput="chkDupId(this.value); inlineIdSearch(this.value)">
+              <!-- رمز # على اليمين -->
               <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:.7rem;color:var(--muted);pointer-events:none">#</span>
-              <span id="idDupWarn" style="display:none;position:absolute;left:0;top:calc(100% + 2px);font-size:.68rem;color:var(--amber);font-weight:700;white-space:nowrap">⚠️ رقم مستخدم</span>
+              <!-- زر بحث على اليسار -->
+              <button type="button" onclick="inlineIdSearchBtn()"
+                style="position:absolute;left:6px;top:50%;transform:translateY(-50%);
+                       background:none;border:none;cursor:pointer;padding:2px;
+                       color:var(--teal);opacity:.7;transition:opacity .15s"
+                title="بحث عن متدرب بهذا الرقم"
+                onmouseover="this.style.opacity=1" onmouseout="this.style.opacity='.7'">
+                <span class="svg-icon" style="font-size:13px">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                </span>
+              </button>
+              <!-- تحذير رقم مكرر -->
+              <span id="idDupWarn" style="display:none;position:absolute;left:0;top:calc(100% + 2px);
+                    font-size:.68rem;color:var(--amber);font-weight:700;white-space:nowrap;
+                    background:rgba(255,255,255,.95);padding:2px 6px;border-radius:4px;
+                    border:1px solid var(--amber);z-index:10">⚠️ رقم مستخدم مسبقاً</span>
+              <!-- نتائج البحث السريع -->
+              <div id="inlineSearchDrop" style="display:none;position:absolute;left:0;right:0;
+                   top:calc(100% + 6px);background:white;border:1.5px solid var(--teal);
+                   border-radius:10px;box-shadow:0 8px 24px rgba(0,181,181,.2);
+                   z-index:100;max-height:200px;overflow-y:auto"></div>
             </div>
           </div>
         </div>
@@ -1628,8 +1672,8 @@ let TRAINERS = [
   {id:'t5',name:'م. طارق السالمي',  dept:'تقنية المعلومات',  subject:'برمجة الويب',        spec:'برمجة ويب'},
   {id:'t6',name:'م. بشير المطيري',  dept:'تقنية السيارات',   subject:'ميكانيكا السيارات',  spec:'صيانة'},
 ];
-const REASONS=['غيابات متكررة','ضعف أكاديمي','مخالفة تدريبية','عدم الالتزام','أسباب صحية','أسباب عائلية'];
-const STATUSES=['deprived','deprived','deprived','resolved'];
+const REASONS=['غيابات متكررة','ضعف أكاديمي','مخالفة تدريبية','عدم الالتزام','أسباب صحية','أسباب عائلية','أخرى'];
+// STATUSES removed — no fake data
 const NAMES=[];// removed
 
 let NOTIFS = [
@@ -1792,12 +1836,17 @@ async function loadAllData(){
       fsGet(COL.notifs),
       fsGet(COL.atts),
     ]);
-    // حمّل البيانات مباشرة — إذا كانت فارغة فهي فارغة (لا retry)
+    // استبدال كامل للبيانات المحلية بما في Firestore
+    // ما حُذف من Firestore لن يظهر هنا
     allStudents = students.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-    DEPTS=depts; SUBJECTS=subjects; TRAINERS=trainers; USERS=users;
-    NOTIFS=notifs.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-    atts_list=atts.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    DEPTS       = depts.slice();
+    SUBJECTS    = subjects.slice();
+    TRAINERS    = trainers.slice();
+    USERS       = users.slice();
+    NOTIFS      = notifs.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    atts_list   = atts.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
     if(typeof rndrAtts==='function') rndrAtts();
+    console.log('✓ Firestore loaded: students='+allStudents.length+' depts='+DEPTS.length);
   } catch(e) {
     console.error('loadAllData failed:',e.code, e.message);
     throw e;
@@ -1806,12 +1855,15 @@ async function loadAllData(){
 
 // ── Refresh data silently ─────────────────────────────────────
 async function refreshData(){
+  // إعادة تحميل كامل من Firestore — يضمن عدم ظهور بيانات محذوفة
   await loadAllData();
   filteredStudents=allStudents.filter(s=>s.status===curFilter);
   curPage=1;
   updKPIs(); rndrStudents(); rndrPag(); rndrDashTbl(); rndrDProg(); rndrAlerts();
   rndrAllMgmt(); rndrNotifs(); syncFilters();
+  if(typeof rndrUsers==='function') rndrUsers();
   document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
+  console.log('✓ refreshData: students='+allStudents.length);
 }
 
 // ── Sync button handler ───────────────────────────────────────
@@ -2110,19 +2162,19 @@ function saveSt(){
     showFbLoading(false);
     console.log('Firestore save result:', ok);
     if(!ok){
-      toast('error','خطأ في الحفظ','تعذّر حفظ بيانات الطالب — تحقق من اتصال Firebase');
+      toast('error','خطأ في الحفظ','تعذّر حفظ البيانات في Firestore — لم يُحفظ');
       return;
     }
-    // تحديث الذاكرة المحلية فوراً
+    // تحديث الذاكرة المحلية فقط بعد نجاح Firestore
     if(curIdx>=0){
       allStudents[curIdx]=obj;
-      toast('success','تم الحفظ','تم تعديل بيانات الطالب وحفظه في قاعدة البيانات ✓');
+      toast('success','تم الحفظ ✓','تم تعديل البيانات وحفظها في قاعدة البيانات');
     } else {
       allStudents.unshift(obj);
-      toast('success','تمت الإضافة','تم إضافة الطالب وحفظه في قاعدة البيانات ✓');
+      toast('success','تمت الإضافة ✓','تم إضافة الطالب وحفظه في قاعدة البيانات');
     }
     filteredStudents=allStudents.filter(s=>s.status===curFilter);
-    applyF(); closeM('stModal');
+    closeM('stModal');
     document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
     updKPIs(); rndrDashTbl(); rndrAlerts(); rndrStudents(); rndrPag();
   }).catch(e=>{
@@ -2168,16 +2220,21 @@ function delSt(idx){
   if(!CAN_EDIT(s)){toast('warn','صلاحية','لا يمكنك حذف طالب من مادة أخرى');return;}
   if(!confirm(`حذف سجل: ${s.name}؟`))return;
   const stId = allStudents[idx].id;
+  if(!stId){ toast('error','خطأ','رقم الطالب غير موجود'); return; }
   showFbLoading(true);
   fsDel(COL.students, stId).then(ok=>{
     showFbLoading(false);
-    if(!ok) return;
-    allStudents.splice(idx,1);
-    filteredStudents=allStudents.filter(s=>s.status===curFilter);
-    applyF();
+    if(!ok){ toast('error','خطأ الحذف','تعذّر الحذف من Firestore — لم يُحذف'); return; }
+    // احذف من الذاكرة المحلية فقط بعد نجاح Firestore
+    allStudents = allStudents.filter(s=>s.id!==stId);
+    filteredStudents = allStudents.filter(s=>s.status===curFilter);
+    curPage=1; rndrStudents(); rndrPag();
     document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
     updKPIs(); rndrDashTbl(); rndrAlerts();
-    toast('success','تم الحذف','تم حذف السجل من قاعدة البيانات نهائياً ✓');
+    toast('success','تم الحذف','تم حذف السجل نهائياً ✓');
+  }).catch(e=>{
+    showFbLoading(false);
+    toast('error','خطأ Firestore', e.message||'تعذّر الحذف');
   });
 }
 function doAlert(){const s=curIdx>=0?allStudents[curIdx]:null;toast('success','تنبيه',`تم إرسال تنبيه بشأن ${s?.name||'الطالب'}`);closeM('viewModal');}
@@ -2228,16 +2285,26 @@ function rndrTL(){
 function delMg(type,idx){
   if(!IS_ADMIN()){toast('warn','صلاحية','فقط المسؤول يمكنه الحذف');return;}
   const L={dept:DEPTS,subject:SUBJECTS,trainer:TRAINERS};
-  const name=L[type][idx].name;
-  const delId=L[type][idx].id;
-  if(!confirm(`حذف: ${name}؟`))return;
+  const item=L[type][idx];
+  if(!item){ toast('error','خطأ','العنصر غير موجود'); return; }
+  const name=item.name;
+  const delId=item.id;
+  if(!delId){ L[type].splice(idx,1); rndrAllMgmt(); return; }
+  if(!confirm(`حذف "${name}" نهائياً؟\nلا يمكن التراجع عن هذا الإجراء.`))return;
   const colMap={dept:COL.depts,subject:COL.subjects,trainer:COL.trainers};
   showFbLoading(true);
   fsDel(colMap[type], delId).then(ok=>{
     showFbLoading(false);
-    if(!ok) return;
-    L[type].splice(idx,1); rndrAllMgmt(); updKPIs(); rndrDProg();
-    toast('success','تم الحذف',`تم حذف "${name}"`);
+    if(!ok){ toast('error','خطأ','تعذّر الحذف من Firestore'); return; }
+    // احذف بالـ id وليس بالـ index لتفادي خطأ التزامن
+    if(type==='dept')    DEPTS    = DEPTS.filter(x=>x.id!==delId);
+    if(type==='subject') SUBJECTS = SUBJECTS.filter(x=>x.id!==delId);
+    if(type==='trainer') TRAINERS = TRAINERS.filter(x=>x.id!==delId);
+    rndrAllMgmt(); updKPIs(); rndrDProg();
+    toast('success','تم الحذف',`تم حذف "${name}" نهائياً ✓`);
+  }).catch(e=>{
+    showFbLoading(false);
+    toast('error','خطأ Firestore', e.message);
   });
 }
 function openMg(type){
@@ -2374,20 +2441,24 @@ function rndrAtts(){
 }
 function delAtt(i){
   if(!IS_ADMIN()){toast('warn','صلاحية','للمسؤول فقط');return;}
-  if(!confirm('حذف هذا المرفق؟'))return;
+  if(!confirm('حذف هذا المرفق نهائياً؟'))return;
   const att=atts_list[i];
-  if(att&&att.id){
-    showFbLoading(true);
-    fsDel(COL.atts, String(att.id)).then(ok=>{
-      showFbLoading(false);
-      if(!ok) return;
-      atts_list.splice(i,1); rndrAtts();
-      toast('success','حذف','تم حذف المرفق');
-    });
-  } else {
+  if(!att){ toast('error','خطأ','المرفق غير موجود'); return; }
+  if(!att.id){
     atts_list.splice(i,1); rndrAtts();
-    toast('success','حذف','تم حذف المرفق');
+    return;
   }
+  showFbLoading(true);
+  fsDel(COL.atts, String(att.id)).then(ok=>{
+    showFbLoading(false);
+    if(!ok){ toast('error','خطأ','تعذّر الحذف من Firestore'); return; }
+    atts_list = atts_list.filter((_,idx)=>idx!==i);
+    rndrAtts();
+    toast('success','حذف','تم حذف المرفق نهائياً ✓');
+  }).catch(e=>{
+    showFbLoading(false);
+    toast('error','خطأ Firestore', e.message);
+  });
 }
 const dz=document.getElementById('dropZ');
 ['dragover','dragenter'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.style.borderColor='var(--teal)';},false));
@@ -2470,6 +2541,94 @@ function toast(type,title,desc='',dur=3500){
 
 // ── KEYBOARD SHORTCUTS ────────────────────────────────────────
 
+
+
+// ── البحث السريع المدمج في حقل الرقم التدريبي ───────────────
+let _isdTimer = null;
+
+function inlineIdSearch(val) {
+  const drop = document.getElementById('inlineSearchDrop');
+  if(!drop) return;
+  const q = (val||'').trim();
+
+  // أخفِ الـ dropdown إذا كان الحقل فارغاً
+  if(!q || q.length < 2) {
+    drop.style.display = 'none';
+    return;
+  }
+
+  // Debounce 200ms
+  clearTimeout(_isdTimer);
+  _isdTimer = setTimeout(() => {
+    const results = allStudents.filter(s =>
+      s.id.includes(q) || s.name.includes(q)
+    ).slice(0, 5);
+
+    if(!results.length) {
+      drop.innerHTML = '<div class="isd-empty">لا توجد نتائج</div>';
+      drop.style.display = 'block';
+      return;
+    }
+
+    drop.innerHTML = results.map(s => {
+      const pct = absPct(s);
+      const badgeCls = s.status==='deprived' ? 'dep' : 'res';
+      const badgeTxt = s.status==='deprived' ? `${pct}٪ محروم` : 'معالج';
+      return `
+      <div class="isd-item" onclick="fillFromSearch('${s.id}','${s.name.replace(/'/g,"\'")}')">
+        <div class="isd-av" style="background:${s.deptColor||'var(--navy)'}">
+          ${s.name[0]}
+        </div>
+        <div class="isd-info">
+          <div class="isd-name">${s.name}</div>
+          <div class="isd-meta">${s.id} · ${s.dept||'—'}</div>
+        </div>
+        <span class="isd-badge ${badgeCls}">${badgeTxt}</span>
+      </div>`;
+    }).join('');
+    drop.style.display = 'block';
+  }, 200);
+}
+
+function inlineIdSearchBtn() {
+  const val = document.getElementById('m_id')?.value?.trim();
+  if(!val) {
+    // إذا فارغ — افتح نافذة البحث الكاملة
+    closeM('stModal');
+    setTimeout(()=>openIdSearch(), 150);
+    return;
+  }
+  inlineIdSearch(val);
+}
+
+function fillFromSearch(id, name) {
+  // أغلق الـ dropdown
+  const drop = document.getElementById('inlineSearchDrop');
+  if(drop) drop.style.display = 'none';
+
+  // ابحث عن الطالب في القائمة
+  const idx = allStudents.findIndex(s => s.id === id);
+  if(idx < 0) {
+    // مجرد ملء الحقل
+    document.getElementById('m_id').value = id;
+    document.getElementById('m_name').value = name;
+    return;
+  }
+
+  // افتح ملف الطالب في وضع التعديل
+  closeM('stModal');
+  setTimeout(() => {
+    editSt(idx);
+  }, 150);
+}
+
+// أغلق الـ dropdown عند النقر خارجه
+document.addEventListener('click', (e) => {
+  if(!e.target.closest('#inlineSearchDrop') && !e.target.closest('#m_id') && !e.target.closest('[onclick="inlineIdSearchBtn()"]')) {
+    const drop = document.getElementById('inlineSearchDrop');
+    if(drop) drop.style.display = 'none';
+  }
+});
 
 // ── التحقق من تكرار الرقم التدريبي ───────────────────────
 function chkDupId(val) {
@@ -2619,15 +2778,12 @@ let autoSyncTimer = null;
 function startAutoSync() {
   if(autoSyncTimer) clearInterval(autoSyncTimer);
   autoSyncTimer = setInterval(async () => {
-    if(!S.role) return; // غير مسجل
+    if(!S.role) return;
     try {
-      await loadAllData();
-      filteredStudents=allStudents.filter(s=>s.status===curFilter);
-      rndrStudents(); rndrPag(); updKPIs();
-      document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
-      console.log('Auto-sync done:', new Date().toLocaleTimeString('ar'));
+      await refreshData(); // يستخدم refreshData الكاملة
+      console.log('✓ Auto-sync:', new Date().toLocaleTimeString('ar-SA'));
     } catch(e){ console.warn('Auto-sync failed:', e.message); }
-  }, 5 * 60 * 1000); // كل 5 دقائق
+  }, 3 * 60 * 1000); // كل 3 دقائق
 }
 function stopAutoSync() {
   if(autoSyncTimer){ clearInterval(autoSyncTimer); autoSyncTimer=null; }
@@ -2855,10 +3011,13 @@ function delUser(id){
   showFbLoading(true);
   fsDel(COL.users, id).then(ok=>{
     showFbLoading(false);
-    if(!ok) return;
-    USERS=USERS.filter(x=>x.id!==id);
+    if(!ok){ toast('error','خطأ','تعذّر الحذف من Firestore'); return; }
+    USERS = USERS.filter(x=>x.id!==id);
     rndrUsers();
-    toast('success','تم الحذف',`تم حذف حساب ${u.name}`);
+    toast('success','تم الحذف',`تم حذف حساب ${u.name} نهائياً ✓`);
+  }).catch(e=>{
+    showFbLoading(false);
+    toast('error','خطأ Firestore', e.message);
   });
 }
 
