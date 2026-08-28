@@ -1,0 +1,48 @@
+diff --git a/index.html b/index.html
+index 76a31fd..d72870c 100644
+--- a/index.html
++++ b/index.html
+@@ -3226,7 +3226,13 @@ function restoreSession() {
+   }
+ }
+ 
+-window.addEventListener('load',()=>{
++// ملاحظة: كان هذا الجزء الحرج (إظهار شاشة الدخول/التطبيق) مرتبطاً بحدث
++// 'load' الذي لا يُطلَق إلا بعد اكتمال تحميل كل الموارد الخارجية (خطوط
++// Google، Chart.js، إلخ). على الشبكات البطيئة أو التي تحجب أحد هذه
++// الموارد، كانت الواجهة تبقى عالقة إلى الأبد على شاشة "جاري تحميل
++// البيانات...". الآن نُشغّله فور اكتمال تحليل الصفحة (DOMContentLoaded)
++// بدلاً من انتظار كل الموارد الخارجية، مع مهلة أمان احتياطية أدناه.
++function bootApp(){
+   // Firebase ready
+   window._fbReady=true;
+   window._fbReadyCallbacks.forEach(fn=>fn());
+@@ -3271,7 +3277,27 @@ window.addEventListener('load',()=>{
+ 
+     setTimeout(startupSync,0);
+   });
+-});
++}
++
++if(document.readyState==='loading'){
++  document.addEventListener('DOMContentLoaded', bootApp);
++} else {
++  bootApp();
++}
++
++// مهلة أمان احتياطية: إن ظلت شاشة التحميل ظاهرة لأي سبب غير متوقع
++// (خطأ برمجي، مورد خارجي عالق...)، أزلها بالقوة وأظهر صفحة الدخول
++// حتى لا يبقى المستخدم عالقاً على الشاشة السوداء.
++setTimeout(()=>{
++  const fb=document.getElementById('fbLoading');
++  const lp=document.getElementById('login-page');
++  const app=document.getElementById('app');
++  if(fb && !fb.classList.contains('hide')){
++    console.warn('[failsafe] fbLoading still visible after 6s — forcing reveal');
++    fb.classList.add('hide');
++    if(lp && !(app && app.classList.contains('on'))) lp.style.display='flex';
++  }
++}, 6000);
+ 
+ // ── تسجيل Service Worker (تفعيل PWA/العمل دون اتصال) ──────────
+ if('serviceWorker' in navigator){
