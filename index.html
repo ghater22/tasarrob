@@ -1544,9 +1544,38 @@ function findAccount(username, password) {
   return null; // المصادقة الوحيدة للمستخدمين العاديين هي Firebase Auth
 }
 // async version — loads users fresh from Firestore then checks
+async function ensureFirebaseAuthAccount(username, password, allowCreate=false){
+  const fakeEmail = username.replace(/[^a-zA-Z0-9._-]/g,'') + '@tasarrob.local';
+  try {
+    const cred = await auth.signInWithEmailAndPassword(fakeEmail, password);
+    return cred.user;
+  } catch(e){
+    if(allowCreate && (e.code==='auth/user-not-found' || e.code==='auth/invalid-credential')){
+      const cred = await auth.createUserWithEmailAndPassword(fakeEmail, password);
+      return cred.user;
+    }
+    throw e;
+  }
+}
+
+async function waitForAuthReady(timeout=8000){
+  if(auth.currentUser) return auth.currentUser;
+  return await new Promise((resolve,reject)=>{
+    let done=false;
+    const timer=setTimeout(()=>{ if(!done){done=true;unsub();reject(new Error('انتهت مهلة تهيئة المصادقة'));}},timeout);
+    const unsub=auth.onAuthStateChanged(user=>{
+      if(user && !done){done=true;clearTimeout(timer);unsub();resolve(user);}
+    });
+  });
+}
+
 async function findAccountAsync(username, password) {
-  // المدير القديم يعمل بالحساب المضمن فقط مؤقتاً؛ الحساب الإداري الإنتاجي يجب أن يكون Firebase Auth.
-  if(username === ADMIN_ACCOUNT.username && password === ADMIN_ACCOUNT.password) return ADMIN_ACCOUNT;
+  // المدير يستخدم Firebase Auth أيضاً حتى تعمل قواعد Firestore بعد تحديث الصفحة.
+  if(username === ADMIN_ACCOUNT.username && password === ADMIN_ACCOUNT.password){
+    try { await ensureFirebaseAuthAccount(username,password,true); }
+    catch(e){ console.error('Admin Firebase Auth error:',e.code,e.message); throw e; }
+    return ADMIN_ACCOUNT;
+  }
 
   const freshUsers = await fsGet(COL.users);
   if(freshUsers.length) USERS = freshUsers;
@@ -3011,8 +3040,6 @@ function restoreSession() {
     if (!saved) return false;
     const sess = JSON.parse(saved);
     if (!sess || !sess.role || !sess.name || !['admin','trainer','coord'].includes(sess.role)) return false;
-     // لا نثق بجلسة localStorage للمستخدمين العاديين؛ Firebase Auth هو مصدر الهوية.
-     if(sess.role!=='admin' && !auth.currentUser){ localStorage.removeItem('ts_session'); return false; }
     // تحقق من صلاحية الجلسة (24 ساعة للمستخدمين العاديين، 7 أيام للمدير)
     const maxAge = sess.role==='admin' ? 7*24*60*60*1000 : 24*60*60*1000;
     if(Date.now() - (sess.ts||0) > maxAge) {
@@ -3062,21 +3089,26 @@ window.addEventListener('load',()=>{
       // ← المستخدم كان مسجلاً — حمّل البيانات مباشرة
       document.getElementById('fbLoading').classList.remove('hide');
       // محاولة مع retry تلقائي
-      const tryLoad = (attempt=1) => {
-        loadAllData().then(()=>{
+      const tryLoad = async (attempt=1) => {
+        try {
+          // انتظر استعادة Firebase Auth قبل أول قراءة؛ وإلا قد تُرفض القراءة ثم تُمسح البيانات من الواجهة.
+          if(S.role !== 'admin' || !auth.currentUser) await waitForAuthReady();
+          await loadAllData();
           showFbLoading(false);
           filteredStudents = allStudents.filter(s=>s.status===curFilter);
           initAll();
-        }).catch(e=>{
+        } catch(e) {
           if(attempt < 3) {
             setTimeout(()=>tryLoad(attempt+1), 1500*attempt);
           } else {
             showFbLoading(false);
-            allStudents=[]; filteredStudents=[];
+            // لا تمسح البيانات الحالية عند فشل الشبكة/الصلاحيات.
+            // البيانات الموجودة في الواجهة قد تكون من Firestore cache أو من جلسة سابقة.
+            filteredStudents = allStudents.filter(s=>s.status===curFilter);
             initAll();
-            toast('warn','تنبيه','تعذّر تحميل البيانات — يعمل بدون اتصال');
+            toast('warn','تعذّر التحديث','لم نتمكن من تحديث البيانات من الخادم، وتم الاحتفاظ بالبيانات الحالية.');
           }
-        });
+        }
       };
       tryLoad();
     } else {
