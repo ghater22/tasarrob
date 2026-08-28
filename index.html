@@ -1852,7 +1852,7 @@ function rndrAlerts(){
   const alerts=[
     {cls:'red',  icon:'fa-user-slash',     title:`${dep} طالب محروم — مسجّلون في المنصة`,    desc:'يجب مراجعة حالتهم والتواصل مع أولياء الأمور',time:'محدّث الآن'},
     {cls:'red',  icon:'fa-triangle-exclamation',title:`${hi} طالب تجاوزوا الحد بـ٥ غيابات أو أكثر`,desc:'يستلزم إجراءً عاجلاً',time:'منذ ١ ساعة'},
-    {cls:'teal', icon:'fa-file-signature', title:'تقرير فصلي جاهز للمراجعة',                   desc:`نسبة الحرمان: ${rate}٪ — الحد المعتمد ${CFG.deprivationPct}٪`,  time:'اليوم'},
+    {cls:'teal', icon:'fa-file-signature', title:'تقرير فصلي جاهز للمراجعة',                   desc:`نسبة الحرمان: ${depRate}٪ — الحد المعتمد ${CFG.deprivationPct}٪`,  time:'اليوم'},
     {cls:'amber',icon:'fa-phone',          title:'٣ طلاب لم يُتواصل معهم بعد',                 desc:'إحالة من وحدة الإرشاد منذ أسبوع',            time:'منذ ٣ أيام'},
     {cls:'teal', icon:'fa-circle-check',   title:'تسوية حالات بنجاح',                          desc:'عادوا للانتظام بعد التسوية والمتابعة',        time:'البارحة'},
   ];
@@ -2170,9 +2170,16 @@ function delMg(type,idx){
   if(!IS_ADMIN()){toast('warn','صلاحية','فقط المسؤول يمكنه الحذف');return;}
   const L={dept:DEPTS,subject:SUBJECTS,trainer:TRAINERS};
   const name=L[type][idx].name;
+  const delId=L[type][idx].id;
   if(!confirm(`حذف: ${name}؟`))return;
-  L[type].splice(idx,1); rndrAllMgmt(); updKPIs(); rndrDProg();
-  toast('success','تم الحذف',`تم حذف "${name}"`);
+  const colMap={dept:COL.depts,subject:COL.subjects,trainer:COL.trainers};
+  showFbLoading(true);
+  fsDel(colMap[type], delId).then(ok=>{
+    showFbLoading(false);
+    if(!ok) return;
+    L[type].splice(idx,1); rndrAllMgmt(); updKPIs(); rndrDProg();
+    toast('success','تم الحذف',`تم حذف "${name}"`);
+  });
 }
 function openMg(type){
   if(!IS_ADMIN()){toast('warn','صلاحية','فقط المسؤول');return;}
@@ -2192,12 +2199,20 @@ function saveMg(){
   const name=document.getElementById('mg_name')?.value.trim();
   if(!name){toast('error','خطأ','أدخل الاسم');return;}
   if(curMgType==='dept'){
-    const icon=document.getElementById('mg_icon')?.value||'fas fa-building'; // icon key
+    const icon=document.getElementById('mg_icon')?.value||'fas fa-building';
     const color=document.getElementById('mg_color')?.value||'#3B82F6';
     const students=parseInt(document.getElementById('mg_std')?.value)||0;
     const cnt=parseInt(document.getElementById('mg_cnt')?.value)||0;
-    DEPTS.push({id:'d'+Date.now(),name,icon,color,cls:'dc0',students,cnt});
-    rndrDL(); syncFilters(); updKPIs();
+    const newDept={id:'d'+Date.now(),name,icon,color,cls:'dc0',students,cnt};
+    showFbLoading(true);
+    fsSet(COL.depts, newDept.id, newDept).then(ok=>{
+      showFbLoading(false);
+      if(!ok) return;
+      DEPTS.push(newDept);
+      rndrDL(); syncFilters(); updKPIs();
+      closeM('mgModal'); toast('success','تمت الإضافة',`تم إضافة "${name}" بنجاح`);
+    });
+    return;
   }else if(curMgType==='subject'){
     const dept=document.getElementById('mg_dept')?.value||'';
     const icon=document.getElementById('mg_icon')?.value||'fas fa-book'; // icon key
@@ -2298,7 +2313,23 @@ function rndrAtts(){
   const EI={PDF:'fa-file-pdf',DOC:'fa-file-word',DOCX:'fa-file-word',XLS:'fa-file-excel',XLSX:'fa-file-excel',PNG:'fa-file-image',JPG:'fa-file-image'};
   el.innerHTML=atts_list.map((a,i)=>`<div class="att-item"><i class="fas ${EI[a.ext]||'fa-file'} fa-lg" style="color:var(--teal)"></i><span><strong style="font-size:.82rem">${a.name}</strong><br><small style="color:var(--muted)">${a.type} · ${a.ext} · ${a.size} · ${a.date}</small></span><button onclick="delAtt(${i})" style="background:none;border:none;color:var(--red);cursor:pointer"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span></button></div>`).join('');
 }
-function delAtt(i){atts_list.splice(i,1); fsSet(COL.atts,'_del_'+Date.now(),{deleted:true}); rndrAtts();toast('success','حذف','تم حذف المرفق');}
+function delAtt(i){
+  if(!IS_ADMIN()){toast('warn','صلاحية','للمسؤول فقط');return;}
+  if(!confirm('حذف هذا المرفق؟'))return;
+  const att=atts_list[i];
+  if(att&&att.id){
+    showFbLoading(true);
+    fsDel(COL.atts, String(att.id)).then(ok=>{
+      showFbLoading(false);
+      if(!ok) return;
+      atts_list.splice(i,1); rndrAtts();
+      toast('success','حذف','تم حذف المرفق');
+    });
+  } else {
+    atts_list.splice(i,1); rndrAtts();
+    toast('success','حذف','تم حذف المرفق');
+  }
+}
 const dz=document.getElementById('dropZ');
 ['dragover','dragenter'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.style.borderColor='var(--teal)';},false));
 ['dragleave','drop'].forEach(e=>dz.addEventListener(e,()=>dz.style.borderColor=''));
@@ -2702,12 +2733,23 @@ function saveUser(){
     }
   } else {
     // Add new
-    const newUser={id:'u'+Date.now(),name,username,password,role,subject,phone,notes};
-    USERS.push(newUser);
+    const newUser={id:'u'+Date.now(),name,username,password,role,subject,phone,notes,createdAt:Date.now()};
     const roleLabel={trainer:'المدرب',coord:'المنسق',admin:'مدير النظام'}[role]||role;
-    toast('success','تم الإنشاء',`تم إنشاء حساب ${roleLabel} ${name}`);
-    // Add toast with credentials
-    setTimeout(()=>toast('info','بيانات الدخول',`اسم الدخول: ${username} — كلمة المرور: ${password}`,6000),500);
+    // إنشاء حساب Firebase Auth + Firestore
+    const fakeEmail=username.replace(/[^a-zA-Z0-9]/g,'')+'@tasarrob.local';
+    showFbLoading(true);
+    (async()=>{
+      try{ await auth.createUserWithEmailAndPassword(fakeEmail,password); }
+      catch(e){ console.warn('Auth skip:',e.code); }
+      const ok=await fsSet(COL.users, newUser.id, newUser);
+      showFbLoading(false);
+      if(!ok) return;
+      USERS.push(newUser);
+      toast('success','تم الإنشاء',`تم إنشاء حساب ${roleLabel} ${name}`);
+      setTimeout(()=>toast('info','بيانات الدخول',`اسم الدخول: ${username} — كلمة المرور: ${password}`,6000),500);
+      closeM('usrModal'); rndrUsers();
+    })();
+    return;
   }
 
   closeM('usrModal');
