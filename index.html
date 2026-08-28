@@ -628,11 +628,6 @@ td{padding:9px 10px;font-size:.78rem}
   .pc{padding:0!important}
 }
 
-/* ─── INDIVIDUAL STUDENT REPORT PRINT ─── */
-@media print{
-  .student-print-sheet{display:block!important}
-}
-.student-print-sheet{display:none}
 /* ─── TOUCH IMPROVEMENTS ─── */
 @media(hover:none) and (pointer:coarse){
   /* Larger tap targets */
@@ -795,11 +790,9 @@ body.sb-open{overflow:hidden}
 </style>
 
 <!-- Firebase SDK -->
-<!-- ملاحظة أمنية: بيانات Firebase الظاهرة في الواجهة ليست بديلاً عن قواعد Firestore/Storage؛ يجب فرض الصلاحيات في Security Rules. -->
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 <script>
 
 const firebaseConfig = {
@@ -814,7 +807,6 @@ const firebaseConfig = {
   firebase.initializeApp(firebaseConfig);
   const db  = firebase.firestore();
   const auth = firebase.auth();
-  const storage = firebase.storage();
   // تفعيل persistence للجلسة
   auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(()=>{});
 
@@ -838,25 +830,22 @@ const firebaseConfig = {
     } catch(e){
       console.error('Firestore fsGet error:',e.code, e.message);
       if(e.code==='permission-denied')
-        toast('error','خطأ في الصلاحيات','لا توجد صلاحية لقراءة البيانات من Firestore');
-      else if(e.code==='unavailable' || e.code==='network-request-failed')
-        toast('error','لا يوجد اتصال','تعذّر الاتصال بقاعدة البيانات');
-      else
-        toast('error','خطأ في قاعدة البيانات',e.message||'تعذّر تحميل البيانات');
-      // لا نعيد [] عند فشل القراءة حتى لا تختفي البيانات من الواجهة مؤقتاً.
-      throw e;
+        toast('error','قاعدة البيانات','يرجى تفعيل Firestore Database في مشروع Firebase');
+      return [];
     }
   }
   async function fsSet(col, id, data) {
     if(!id){ console.error('fsSet: missing id'); return false; }
+    // تنظيف undefined — Firestore لا يقبلها
+    const clean = JSON.parse(JSON.stringify(data, (k,v) => v===undefined ? null : v));
     try {
-      await col.doc(String(id)).set(data, {merge:true});
+      await col.doc(String(id)).set(clean, {merge:true});
       console.log('✓ fsSet success:', String(id));
       return true;
     } catch(e){
       console.error('Firestore fsSet error:',e.code, e.message, 'id:', id);
       if(e.code==='permission-denied')
-        toast('error','رفض الوصول','تحقق من صلاحيات Firestore المطبقة على الحساب');
+        toast('error','خطأ صلاحية','قاعدة البيانات — تأكد من قواعد Firestore (allow read, write: if true)');
       else if(e.code==='unavailable' || e.code==='network-request-failed')
         toast('error','لا يوجد اتصال','تحقق من الإنترنت وأعد المحاولة');
       else if(e.code==='not-found')
@@ -992,7 +981,7 @@ const firebaseConfig = {
       <div class="tb-crumb" id="pgCrumb">الرئيسية / لوحة التحكم</div>
     </div>
     <div class="tb-actions">
-      <div class="srch"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input type="text" id="gQ" placeholder="بحث سريع بالاسم أو الرقم التدريبي..." oninput="gSrch(this.value)"></div>
+      <div class="srch"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input type="text" id="gQ" placeholder="بحث سريع... (Ctrl+K)" oninput="gSrch(this.value)"></div>
       <button class="hbtn" onclick="showV('notifications',document.querySelectorAll('.ni')[5])"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span><span class="ndot" id="ndot"></span></button>
       <button class="hbtn" onclick="window.print()"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span></button>
       <button class="hbtn" onclick="openIdSearch()" title="بحث بالرقم التدريبي" style="position:relative">
@@ -1061,7 +1050,7 @@ const firebaseConfig = {
   <div class="t-card">
     <div class="t-hd">
       <div class="t-count">العدد: <strong id="stCount">0</strong></div>
-      <div class="srch" style="min-width:185px"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input type="text" id="tblQ" placeholder="بحث بالاسم أو الرقم التدريبي..." oninput="srchSt(this.value)"></div>
+      <div class="srch" style="min-width:185px"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span><input type="text" id="tblQ" placeholder="بحث..." oninput="srchSt(this.value)"></div>
     </div>
     <div class="tbl-wrap">
       <table><thead><tr><th>#</th><th>الطالب</th><th class="col-hide-mobile">القسم</th><th class="col-hide-mobile">المادة</th><th>الغيابات</th><th class="col-hide-mobile">السبب</th><th class="col-hide-mobile">المدرب</th><th>الحالة</th><th>إجراءات</th></tr></thead><tbody id="stBody"></tbody></table>
@@ -1128,7 +1117,7 @@ const firebaseConfig = {
           <div class="att-zone" id="dropZ" onclick="document.getElementById('fi').click()">
             <span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></span><p>اضغط لاختيار ملف أو اسحب وأفلت</p><p style="font-size:.7rem;margin-top:2px;color:var(--muted)">PDF · Word · Excel · صور</p>
           </div>
-          <input type="file" id="fi" style="display:none" accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg" onchange="hFile(this)">
+          <input type="file" id="fi" style="display:none" onchange="hFile(this)">
         </div>
       </div>
       <button class="btn btn-teal" style="margin-top:12px" onclick="addAtt()"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></span> رفع المرفق</button>
@@ -1368,7 +1357,7 @@ const firebaseConfig = {
 <div class="mov" id="viewModal">
   <div class="modal"><div class="mhd"><div class="mttl">ملف الطالب</div><button class="mclose" onclick="closeM('viewModal')"><span class="svg-icon"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span></button></div>
   <div class="mbody" id="vBody"></div>
-  <div class="mft"><button class="btn btn-outline" onclick="closeM('viewModal')">إغلاق</button><button class="btn btn-outline" onclick="printStudentReport(curIdx)"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg></span> طباعة التقرير</button><button class="btn btn-outline" onclick="doAlert()"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span> تنبيه</button><button class="btn btn-teal" id="veBtn" onclick=""><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></span> تعديل</button></div></div>
+  <div class="mft"><button class="btn btn-outline" onclick="closeM('viewModal')">إغلاق</button><button class="btn btn-outline" onclick="doAlert()"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span> تنبيه</button><button class="btn btn-teal" id="veBtn" onclick=""><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></span> تعديل</button></div></div>
 </div>
 
 <!-- MGMT MODAL -->
@@ -1500,22 +1489,6 @@ const firebaseConfig = {
 ═══════════════════════════════════════════════════════════ */
 
 
-// ── Security helpers ─────────────────────────────────────────
-function escapeHTML(value){
-  return String(value ?? '').replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;',"\"":'&quot;'}[ch]));
-}
-function csvCell(value){
-  const v=String(value ?? '');
-  const safe=/^[=+\-@]/.test(v)?"'"+v:v;
-  return "\""+safe.replace(/\"/g,"\"\"")+"\"";
-}
-const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-const ALLOWED_ATTACHMENT_TYPES = new Set([
-  'application/pdf','application/msword','application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'image/png','image/jpeg'
-]);
-
 // ── حساب نسبة الغياب والحرمان ─────────────────────────────
 function absPct(student) {
   // نسبة الغياب = (غيابات / إجمالي حصص الفصل) × 100
@@ -1533,8 +1506,8 @@ const ADMIN_ACCOUNT = { username:'admin', password:'admin1234', role:'admin', na
 
 // User accounts created by admin (trainer / coord only)
 let USERS = [
-  // الحسابات الفعلية تُدار عبر Firebase Authentication؛ لا تُخزّن كلمات المرور هنا.
-
+  { id:'u1', username:'trainer1', password:'T@1234', role:'trainer', name:'م. سعيد القحطاني', subject:'الشبكات المتقدمة', phone:'0501234567', notes:'قسم تقنية المعلومات' },
+  { id:'u2', username:'coord1',   password:'C@1234', role:'coord',   name:'منسق الإرشاد',     subject:'',                  phone:'0507654321', notes:'وحدة الخدمات الإرشادية' },
 ];
 
 const S = { role:'admin', name:'', trainerSubject:'', userId:'' };
@@ -1546,60 +1519,34 @@ const CAN_EDIT   = (st) => { if(IS_COORD()) return false; if(IS_TRAINER()) retur
 // Find account by username
 function findAccount(username, password) {
   if(username === ADMIN_ACCOUNT.username && password === ADMIN_ACCOUNT.password) return ADMIN_ACCOUNT;
-  return null; // المصادقة الوحيدة للمستخدمين العاديين هي Firebase Auth
+  return USERS.find(u => u.username===username && u.password===password) || null;
 }
 // async version — loads users fresh from Firestore then checks
-async function ensureFirebaseAuthAccount(username, password, allowCreate=false){
-  const fakeEmail = username.replace(/[^a-zA-Z0-9._-]/g,'') + '@tasarrob.local';
-  try {
-    const cred = await auth.signInWithEmailAndPassword(fakeEmail, password);
-    return cred.user;
-  } catch(e){
-    if(allowCreate && (e.code==='auth/user-not-found' || e.code==='auth/invalid-credential')){
-      const cred = await auth.createUserWithEmailAndPassword(fakeEmail, password);
-      return cred.user;
-    }
-    throw e;
-  }
-}
-
-async function waitForAuthReady(timeout=2500){
-  if(auth.currentUser) return auth.currentUser;
-  return await new Promise(resolve=>{
-    let done=false;
-    const finish=(user)=>{ if(done) return; done=true; clearTimeout(timer); try{unsub();}catch(e){} resolve(user||null); };
-    const timer=setTimeout(()=>finish(auth.currentUser||null),timeout);
-    const unsub=auth.onAuthStateChanged(user=>finish(user));
-  });
-}
-
 async function findAccountAsync(username, password) {
-  // المدير يستخدم Firebase Auth أيضاً حتى تعمل قواعد Firestore بعد تحديث الصفحة.
-  if(username === ADMIN_ACCOUNT.username && password === ADMIN_ACCOUNT.password){
-    try { await ensureFirebaseAuthAccount(username,password,true); }
-    catch(e){ console.error('Admin Firebase Auth error:',e.code,e.message); throw e; }
-    return ADMIN_ACCOUNT;
-  }
+  // ── Admin account (hardcoded, no Firebase Auth needed)
+  if(username === ADMIN_ACCOUNT.username && password === ADMIN_ACCOUNT.password) return ADMIN_ACCOUNT;
 
+  // ── Firestore users
   const freshUsers = await fsGet(COL.users);
   if(freshUsers.length) USERS = freshUsers;
-  const acc = USERS.find(u => u.username===username);
+  const acc = USERS.find(u => u.username===username && u.password===password);
   if(!acc) return null;
 
-  // المصادقة الفعلية تتم عبر Firebase Auth، وليس بمقارنة كلمة مرور مخزنة في Firestore.
-  const fakeEmail = username.replace(/[^a-zA-Z0-9._-]/g,'') + '@tasarrob.local';
+  // ── Firebase Auth: sign in or create user silently
+  const fakeEmail = username.replace(/[^a-zA-Z0-9]/g,'') + '@tasarrob.local';
   try {
-    const cred = await auth.signInWithEmailAndPassword(fakeEmail, password);
-    // اربط ملف المستخدم بهوية Auth حتى تصبح قواعد Firestore قابلة للتطبيق على uid.
-    if(acc.authUid && acc.authUid !== cred.user.uid) return null;
-    if(!acc.authUid){
-      try { await fsSet(COL.users, acc.id, {authUid:cred.user.uid}); acc.authUid=cred.user.uid; } catch(e) { console.warn('authUid link skipped',e); }
-    }
-    return acc;
+    await auth.signInWithEmailAndPassword(fakeEmail, password);
   } catch(e) {
-    console.warn('Firebase Auth login failed:',e.code);
-    return null;
+    if(e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential' || e.code === 'auth/invalid-email') {
+      try {
+        await auth.createUserWithEmailAndPassword(fakeEmail, password);
+      } catch(e2) {
+        // Auth optional — continue even if fails
+        console.warn('Auth create skipped:', e2.code);
+      }
+    }
   }
+  return acc;
 }
 
 // ── CONFIG ──────────────────────────────────────────────────
@@ -1613,72 +1560,46 @@ let atts_list=[], pendFile=null;
 const STATUS_MAP = { deprived:'محروم', resolved:'تمت المعالجة' };
 const STATUS_CSS = { deprived:'deprived', resolved:'resolved' };
 
-let DEPTS = [];
-let SUBJECTS = [];
-let TRAINERS = [];
+let DEPTS = [
+  {id:'it',  name:'تقنية المعلومات',  icon:'fas fa-laptop-code',     color:'#3B82F6', cls:'dc0', students:92, cnt:18},
+  {id:'elec',name:'الإلكترونيات',      icon:'fas fa-microchip',        color:'#F59E0B', cls:'dc1', students:58, cnt:10},
+  {id:'mech',name:'الميكانيكا',        icon:'fas fa-wrench',           color:'#EF4444', cls:'dc2', students:47, cnt:8},
+  {id:'buss',name:'إدارة الأعمال',     icon:'fas fa-briefcase',        color:'#22C55E', cls:'dc3', students:63, cnt:6},
+  {id:'arch',name:'الهندسة المعمارية', icon:'fas fa-drafting-compass', color:'#00B5B5', cls:'dc4', students:32, cnt:3},
+  {id:'auto',name:'تقنية السيارات',    icon:'fas fa-car-engine',       color:'#A855F7', cls:'dc5', students:20, cnt:2},
+];
+let SUBJECTS = [
+  {id:'s1',name:'الشبكات المتقدمة',   dept:'تقنية المعلومات',  icon:'fas fa-network-wired', color:'#3B82F6'},
+  {id:'s2',name:'برمجة الويب',         dept:'تقنية المعلومات',  icon:'fas fa-code',           color:'#3B82F6'},
+  {id:'s3',name:'أمن المعلومات',       dept:'تقنية المعلومات',  icon:'fas fa-shield-halved',  color:'#3B82F6'},
+  {id:'s4',name:'قواعد البيانات',      dept:'تقنية المعلومات',  icon:'fas fa-database',       color:'#3B82F6'},
+  {id:'s5',name:'أنظمة التشغيل',      dept:'الإلكترونيات',     icon:'fas fa-microchip',      color:'#F59E0B'},
+  {id:'s6',name:'إدارة المشاريع',     dept:'إدارة الأعمال',    icon:'fas fa-diagram-project',color:'#22C55E'},
+  {id:'s7',name:'الدوائر الإلكترونية',dept:'الإلكترونيات',     icon:'fas fa-bolt',           color:'#F59E0B'},
+  {id:'s8',name:'ميكانيكا السيارات',  dept:'تقنية السيارات',   icon:'fas fa-car-engine',     color:'#A855F7'},
+];
+let TRAINERS = [
+  {id:'t1',name:'م. سعيد القحطاني', dept:'تقنية المعلومات',  subject:'الشبكات المتقدمة',   spec:'شبكات وأمن'},
+  {id:'t2',name:'م. منير العتيبي',  dept:'الإلكترونيات',     subject:'الدوائر الإلكترونية',spec:'دوائر إلكترونية'},
+  {id:'t3',name:'م. رامي الشهري',   dept:'الميكانيكا',       subject:'ميكانيكا السيارات',  spec:'ميكانيكا'},
+  {id:'t4',name:'م. أشرف الغامدي', dept:'إدارة الأعمال',    subject:'إدارة المشاريع',     spec:'إدارة مشاريع'},
+  {id:'t5',name:'م. طارق السالمي',  dept:'تقنية المعلومات',  subject:'برمجة الويب',        spec:'برمجة ويب'},
+  {id:'t6',name:'م. بشير المطيري',  dept:'تقنية السيارات',   subject:'ميكانيكا السيارات',  spec:'صيانة'},
+];
 const REASONS=['غيابات متكررة','ضعف أكاديمي','مخالفة تدريبية','عدم الالتزام','أسباب صحية','أسباب عائلية'];
 const STATUSES=['deprived','deprived','deprived','resolved'];
 const NAMES=[];// removed
 
-let NOTIFS = [];
-
-// البيانات التجريبية القديمة التي كانت مضمّنة في النسخ السابقة.
-// تُحذف مرة واحدة من Firestore حسب المعرّفات/الأسماء المعروفة فقط،
-// دون المساس بأي سجلات جديدة ينشئها المستخدم.
-const LEGACY_DEMO = {
-  cleanupKey: 'tasarrob_legacy_demo_cleanup_v1',
-  deptIds: ['it','elec','mech','buss','arch','auto'],
-  subjectIds: ['s1','s2','s3','s4','s5','s6','s7','s8'],
-  trainerIds: ['t1','t2','t3','t4','t5','t6'],
-  notificationTitles: [
-    'طلاب محرومون يحتاجون متابعة',
-    'تحذير: ٦ طلاب تجاوزوا ٧٠٪ من الحد',
-    'التقرير الأسبوعي جاهز',
-    'متابعة حالات الميكانيكا مطلوبة',
-    '١٢ غياباً جديداً اليوم',
-    'تسوية ٣ حالات بنجاح',
-    'اجتماع مجلس الإرشاد — الأحد',
-    'نسبة التسرب تجاوزت ١٥٪'
-  ]
-};
-
-async function purgeLegacyDemoData(){
-  try{
-    if(localStorage.getItem(LEGACY_DEMO.cleanupKey)==='done') return false;
-    const deleteByIds = async (colRef, ids) => {
-      for(let i=0;i<ids.length;i+=400){
-        const batch=db.batch();
-        ids.slice(i,i+400).forEach(id=>batch.delete(colRef.doc(String(id))));
-        await batch.commit();
-      }
-    };
-
-    await deleteByIds(COL.depts, LEGACY_DEMO.deptIds);
-    await deleteByIds(COL.subjects, LEGACY_DEMO.subjectIds);
-    await deleteByIds(COL.trainers, LEGACY_DEMO.trainerIds);
-
-    const nsnap = await COL.notifs.get();
-    const legacyNotifs = nsnap.docs.filter(d=>LEGACY_DEMO.notificationTitles.includes(String(d.data()?.title||'')));
-    for(let i=0;i<legacyNotifs.length;i+=400){
-      const batch=db.batch();
-      legacyNotifs.slice(i,i+400).forEach(d=>batch.delete(d.ref));
-      await batch.commit();
-    }
-
-    localStorage.setItem(LEGACY_DEMO.cleanupKey,'done');
-    console.info('Legacy demo data cleanup completed:', {
-      departments: LEGACY_DEMO.deptIds.length,
-      subjects: LEGACY_DEMO.subjectIds.length,
-      trainers: LEGACY_DEMO.trainerIds.length,
-      notifications: legacyNotifs.length
-    });
-    return true;
-  }catch(e){
-    console.warn('Legacy demo cleanup deferred:', e.code || e.message);
-    // لا نضع علامة done حتى تكتمل العملية في زيارة لاحقة.
-    return false;
-  }
-}
+let NOTIFS = [
+  {cls:'red',  icon:'fa-user-slash',             title:'طلاب محرومون يحتاجون متابعة',       desc:'تجاوزوا الحد الأقصى للغيابات المسموح به', time:'منذ ١٠ دقائق',unread:true},
+  {cls:'green',icon:'fa-triangle-exclamation',  title:'تحذير: ٦ طلاب تجاوزوا ٧٠٪ من الحد', desc:'قسم الإلكترونيات — يستوجب تدخلاً فورياً', time:'منذ ٤٥ دقيقة',unread:true},
+  {cls:'teal', icon:'fa-file-chart-column',     title:'التقرير الأسبوعي جاهز',              desc:'ملخص شامل للفصل الدراسي الحالي',           time:'منذ ٢ ساعة',  unread:true},
+  {cls:'red',  icon:'fa-clock',                 title:'متابعة حالات الميكانيكا مطلوبة',    desc:'٣ طلاب لم تتم متابعتهم منذ أسبوع',         time:'منذ ٥ ساعات',unread:true},
+  {cls:'amber',icon:'fa-calendar-xmark',        title:'١٢ غياباً جديداً اليوم',             desc:'موزعة على مختلف الأقسام',                   time:'اليوم ٨:٣٠', unread:true},
+  {cls:'green',icon:'fa-circle-check',          title:'تسوية ٣ حالات بنجاح',                desc:'تمت المعالجة بعد موافقة الإدارة',           time:'أمس',         unread:false},
+  {cls:'teal', icon:'fa-calendar-day',          title:'اجتماع مجلس الإرشاد — الأحد',       desc:'١٠:٠٠ ص — مناقشة حالات الحرمان',           time:'منذ يومين',   unread:false},
+  {cls:'red',  icon:'fa-bell',                  title:'نسبة التسرب تجاوزت ١٥٪',            desc:'الحد المعتمد ٢٠٪ — يستلزم اجتماعاً عاجلاً',time:'منذ ٣ أيام',  unread:false},
+];
 
 // ── GENERATE STUDENTS ────────────────────────────────────────
 // ── AUTH ─────────────────────────────────────────────────────
@@ -1776,8 +1697,9 @@ function doLogin(){
     toast('success','مرحباً',`أهلاً ${acc.name||r[0]} — تسرب`);
   }).catch(e=>{
     showFbLoading(false);
-    toast('warn','تعذّر تحميل البيانات','تم الاحتفاظ بالبيانات الحالية ولن تُمسح بسبب فشل الاتصال');
-    // لا تمسح الحالة الحالية عند فشل الشبكة.
+    toast('warn','تنبيه','تعذّر تحميل البيانات — وضع عدم الاتصال');
+    allStudents=[];
+    filteredStudents=[];
     initAll();
   });
   }); // end findAccountAsync
@@ -1902,15 +1824,15 @@ function updKPIs(){
 function rndrDashTbl(){
   const top=allStudents.filter(s=>s.status==='deprived').slice(0,5);
   document.getElementById('dashTbl').innerHTML=top.map(s=>`
-    <tr><td><div class="scell"><div class="sav" style="background:${s.deptColor}">${s.name[0]}</div><div><div class="sname">${escapeHTML(s.name)}</div><div class="sid">الرقم التدريبي: ${escapeHTML(getTrainingId(s)||'غير مضاف')}</div></div></div></td>
-    <td><span class="dc ${s.deptCls}">${escapeHTML(s.dept)}</span></td>
-    <td style="font-size:.76rem;color:var(--muted)">${escapeHTML(s.subject)}</td>
+    <tr><td><div class="scell"><div class="sav" style="background:${s.deptColor}">${s.name[0]}</div><div><div class="sname">${s.name}</div><div class="sid">${s.id}</div></div></div></td>
+    <td><span class="dc ${s.deptCls}">${s.dept}</span></td>
+    <td style="font-size:.76rem;color:var(--muted)">${s.subject}</td>
     <td><span class="sbadge ${STATUS_CSS[s.status]}">${STATUS_MAP[s.status]}</span></td></tr>`).join('');
 }
 function rndrDProg(){
   document.getElementById('dProg').innerHTML=DEPTS.map(d=>{
     const pct=d.students>0?Math.round(d.cnt/d.students*100):0;
-    return`<div><div class="pl"><span class="pn">${escapeHTML(d.name)}</span><span class="pv" style="color:${pct>15?'var(--red)':pct>8?'var(--amber)':'var(--green)'}">${pct}٪</span></div><div class="pb"><div class="pf" style="width:${pct}%;background:${d.color}"></div></div></div>`;
+    return`<div><div class="pl"><span class="pn">${d.name}</span><span class="pv" style="color:${pct>15?'var(--red)':pct>8?'var(--amber)':'var(--green)'}">${pct}٪</span></div><div class="pb"><div class="pf" style="width:${pct}%;background:${d.color}"></div></div></div>`;
   }).join('');
 }
 function rndrAlerts(){
@@ -1974,23 +1896,6 @@ function initRptCharts(){
 }
 function expChart(id){const c=document.getElementById(id);const a=document.createElement('a');a.download=`tasarrob-${id}.png`;a.href=c.toDataURL();a.click();toast('success','تصدير','تم تنزيل الرسم البياني');}
 
-// ── TRAINING ID HELPERS ─────────────────────────────────────
-function normalizeTrainingId(value){
-  return String(value||'')
-    .trim()
-    .replace(/[٠-٩]/g, d => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
-    .replace(/[۰-۹]/g, d => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)))
-    .replace(/[\s\-]/g, '');
-}
-function getTrainingId(student){
-  if(!student) return '';
-  const explicit = String(student.trainingId||'').trim();
-  if(explicit) return explicit;
-  // Keep compatibility with any legacy record that used a non-generated id.
-  const legacy = String(student.id||'').trim();
-  return legacy.startsWith('st_') ? '' : legacy;
-}
-
 // ── STUDENTS TABLE ────────────────────────────────────────────
 function rndrStudents(){
   const start=(curPage-1)*PAGE;
@@ -2005,12 +1910,12 @@ function rndrStudents(){
     const canMgr=CAN_EDIT(s);
     return`<tr>
       <td style="color:var(--muted);font-size:.72rem">${start+i+1}</td>
-      <td><div class="scell"><div class="sav" style="background:${s.deptColor}">${s.name[0]}</div><div><div class="sname">${escapeHTML(s.name)}</div><div class="sid">${escapeHTML(s.id)}</div></div></div></td>
-      <td class="col-hide-mobile"><span class="dc ${s.deptCls}">${escapeHTML(s.dept)}</span></td>
-      <td class="col-hide-mobile" style="font-size:.76rem;color:var(--muted)">${escapeHTML(s.subject)}</td>
+      <td><div class="scell"><div class="sav" style="background:${s.deptColor}">${s.name[0]}</div><div><div class="sname">${s.name}</div><div class="sid">${s.id}</div></div></div></td>
+      <td class="col-hide-mobile"><span class="dc ${s.deptCls}">${s.dept}</span></td>
+      <td class="col-hide-mobile" style="font-size:.76rem;color:var(--muted)">${s.subject}</td>
       <td><div style="display:flex;align-items:center;gap:4px"><div class="abs-bar"><div class="abs-fill" style="width:${Math.min(pct,100)}%;background:${bc}"></div></div><strong style="color:${bc};font-size:.8rem">${pct}٪</strong></div></td>
-      <td class="col-hide-mobile" style="font-size:.74rem;color:var(--muted)">${escapeHTML(s.reason)}</td>
-      <td class="col-hide-mobile" style="font-size:.74rem">${escapeHTML(s.trainer)}</td>
+      <td class="col-hide-mobile" style="font-size:.74rem;color:var(--muted)">${s.reason}</td>
+      <td class="col-hide-mobile" style="font-size:.74rem">${s.trainer}</td>
       <td><span class="sbadge ${STATUS_CSS[s.status]}">${STATUS_MAP[s.status]}</span></td>
       <td><div class="racts">
         <button class="ab v" onclick="viewSt(${idx})" title="عرض"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></span></button>
@@ -2042,51 +1947,37 @@ function applyF(stOvr,dOvr){
 }
 function srchSt(q){
   const d=document.getElementById('deptFlt')?.value||'';
-  const nq=normalizeTrainingId(q);
-  let base=q?allStudents.filter(s=>{
-    const name=String(s.name||'').toLowerCase();
-    const training=normalizeTrainingId(getTrainingId(s)).toLowerCase();
-    const legacy=normalizeTrainingId(s.id).toLowerCase();
-    const query=String(q||'').trim().toLowerCase();
-    return (name.includes(query)||training.includes(nq.toLowerCase())||legacy.includes(nq.toLowerCase())||String(s.dept||'').includes(query)||String(s.subject||'').includes(query)) && (!d||s.dept===d);
-  }):allStudents.filter(s=>s.status===curFilter&&(!d||s.dept===d));
+  let base=q?allStudents.filter(s=>(s.name.includes(q)||s.id.includes(q)||s.dept.includes(q)||s.subject.includes(q))&&(!d||s.dept===d)):allStudents.filter(s=>s.status===curFilter&&(!d||s.dept===d));
   if(IS_TRAINER())base=base.filter(s=>s.subject===S.trainerSubject);
   filteredStudents=base; curPage=1; rndrStudents(); rndrPag();
 }
 function gSrch(q){
   if(!q)return;
   showV('students',document.querySelectorAll('.ni')[1]);
-  const query=String(q||'').trim().toLowerCase();
-  const nq=normalizeTrainingId(query);
-  let base=allStudents.filter(s=>
-    String(s.name||'').toLowerCase().includes(query)||
-    normalizeTrainingId(getTrainingId(s)).toLowerCase().includes(nq.toLowerCase())||
-    String(s.dept||'').toLowerCase().includes(query)||
-    String(s.subject||'').toLowerCase().includes(query)
-  );
+  let base=allStudents.filter(s=>s.name.includes(q)||s.id.includes(q)||s.dept.includes(q)||s.subject.includes(q));
   if(IS_TRAINER())base=base.filter(s=>s.subject===S.trainerSubject);
   filteredStudents=base; curPage=1; rndrStudents(); rndrPag();
 }
 function syncFilters(){
-  const opts='<option value="">جميع الأقسام</option>'+DEPTS.map(d=>`<option value="${escapeHTML(d.name)}">${escapeHTML(d.name)}</option>`).join('');
+  const opts='<option value="">جميع الأقسام</option>'+DEPTS.map(d=>`<option value="${d.name}">${d.name}</option>`).join('');
   ['deptFlt','rDept'].forEach(id=>{const el=document.getElementById(id);if(el)el.innerHTML=opts;});
 }
 
 // ── STUDENT MODAL ─────────────────────────────────────────────
-function fillD(){const el=document.getElementById('m_dept');if(el)el.innerHTML=DEPTS.map(d=>`<option value="${escapeHTML(d.name)}">${escapeHTML(d.name)}</option>`).join('');}
+function fillD(){const el=document.getElementById('m_dept');if(el)el.innerHTML=DEPTS.map(d=>`<option value="${d.name}">${d.name}</option>`).join('');}
 function sSubj(){
   const d=document.getElementById('m_dept')?.value;
   const el=document.getElementById('m_subject');if(!el)return;
   let list=d?SUBJECTS.filter(s=>s.dept===d):SUBJECTS;
   if(IS_TRAINER())list=list.filter(s=>s.name===S.trainerSubject);
-  el.innerHTML=(list.length?list:SUBJECTS).map(s=>`<option value="${escapeHTML(s.name)}">${escapeHTML(s.name)}</option>`).join('');
+  el.innerHTML=(list.length?list:SUBJECTS).map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
 }
 function sTrn(){
   const d=document.getElementById('m_dept')?.value;
   const el=document.getElementById('m_trainer');if(!el)return;
   let list=d?TRAINERS.filter(t=>t.dept===d):TRAINERS;
   if(IS_TRAINER())list=list.filter(t=>t.subject===S.trainerSubject);
-  el.innerHTML=(list.length?list:TRAINERS).map(t=>`<option value="${escapeHTML(t.name)}">${escapeHTML(t.name)}</option>`).join('');
+  el.innerHTML=(list.length?list:TRAINERS).map(t=>`<option value="${t.name}">${t.name}</option>`).join('');
 }
 function openAddSt(){
   if(IS_COORD()){toast('warn','صلاحية','أنت في وضع اطلاع فقط');return;}
@@ -2115,7 +2006,7 @@ function editSt(idx){
   curIdx=idx;
   document.getElementById('stMttl').textContent='تعديل بيانات الطالب';
   document.getElementById('m_name').value=s.name;
-  document.getElementById('m_id').value=getTrainingId(s);
+  document.getElementById('m_id').value=s.id;
   document.getElementById('m_spec').value='';
   document.getElementById('m_notes').value=s.notes||'';
   document.getElementById('m_status').value=s.status;
@@ -2134,24 +2025,23 @@ function editSt(idx){
   if(IS_TRAINER()) note.classList.add('show'); else note.classList.remove('show');
   openModal('stModal');
 }
-async function saveSt(){
+function saveSt(){
   if(IS_COORD()){toast('warn','صلاحية','أنت في وضع اطلاع فقط');return;}
   const name=document.getElementById('m_name').value.trim();
-  const trainingIdRaw=document.getElementById('m_id').value.trim();
-  const trainingId=trainingIdRaw.replace(/\s+/g,' ').trim();
-  if(!name||!trainingId){toast('error','خطأ','أدخل اسم المتدرب والرقم التدريبي');return;}
-  const normalizedTrainingId=normalizeTrainingId(trainingId);
-  if(!normalizedTrainingId){toast('error','خطأ','أدخل رقمًا تدريبيًا صالحًا');return;}
-  const duplicate=allStudents.some((s,i)=>i!==curIdx && normalizeTrainingId(getTrainingId(s))===normalizedTrainingId);
-  if(duplicate){toast('error','الرقم مستخدم','الرقم التدريبي مضاف بالفعل لمتدرب آخر');return;}
-  const deptN=document.getElementById('m_dept').value;
-  const dept=DEPTS.find(d=>d.name===deptN)||DEPTS[0];
-  const subj=document.getElementById('m_subject').value;
-  if(IS_TRAINER()&&subj!==S.trainerSubject){toast('error','صلاحية','لا يمكنك إضافة طالب لمادة أخرى');return;}
+  const id=document.getElementById('m_id').value.trim();
+  if(!name){toast('error','خطأ','أدخل اسم الطالب');return;}
+  if(!id){toast('error','خطأ','أدخل الرقم التدريبي');return;}
+  const deptN=document.getElementById('m_dept').value||'';
+  const dept=DEPTS.find(d=>d.name===deptN)||DEPTS[0]||{name:deptN||'—',cls:'dc0',color:'#0D1B2A'};
+  const subj=document.getElementById('m_subject').value||'';
+  if(IS_TRAINER()&&subj&&subj!==S.trainerSubject){toast('error','صلاحية','لا يمكنك إضافة طالب لمادة أخرى');return;}
   const totalSessions=parseInt(document.getElementById('m_total')?.value)||100;
-  const deprivationCount=(allStudents.filter(s=>normalizeTrainingId(getTrainingId(s))===normalizedTrainingId&&s.status==='deprived').length)||0;
+  const deprivationCount=(allStudents.filter(s=>s.id===id&&s.status==='deprived').length)||0;
   const obj={
-    trainingId,name,dept:dept.name,deptCls:dept.cls,deptColor:dept.color,
+    id,name,
+    dept:dept.name||deptN||'—',
+    deptCls:dept.cls||'dc0',
+    deptColor:dept.color||'#0D1B2A',
     subject:subj,absences:absCount,totalSessions,
     absPct:Math.round(absCount/totalSessions*100),
     status:document.getElementById('m_status').value,
@@ -2171,32 +2061,23 @@ async function saveSt(){
 
   showFbLoading(true);
   console.log('Saving student to Firestore:', stId, obj);
-  try {
-    const ok = await fsSet(COL.students, stId, obj);
+  fsSet(COL.students, stId, obj).then(ok=>{
+    showFbLoading(false);
+    console.log('Firestore save result:', ok);
     if(!ok){
-      toast('error','خطأ في الحفظ','تعذّر حفظ بيانات المتدرب — تحقق من اتصال Firebase وقواعد Firestore');
+      toast('error','خطأ في الحفظ','تعذّر حفظ بيانات الطالب — تحقق من اتصال Firebase');
       return;
     }
-    // تحقق فعلي من وجود السجل قبل إغلاق النموذج.
-    const verifySnap = await COL.students.doc(String(stId)).get();
-    if(!verifySnap.exists) throw new Error('تم إرسال الحفظ ولكن لم يتم العثور على السجل في Firestore');
-    const savedObj = {id: verifySnap.id, ...verifySnap.data()};
-    if(curIdx>=0){
-      allStudents[curIdx]=savedObj;
-      toast('success','تم الحفظ','تم تحديث بيانات المتدرب وحفظها في قاعدة البيانات ✓');
-    } else {
-      allStudents.unshift(savedObj);
-      toast('success','تمت الإضافة','تمت إضافة المتدرب وحفظ بياناته بشكل دائم ✓');
-    }
+    if(curIdx>=0){allStudents[curIdx]=obj;toast('success','تم الحفظ','تم تعديل بيانات الطالب ✓');}
+    else{allStudents.unshift(obj);toast('success','تمت الإضافة','تم إضافة الطالب وحفظه ✓');}
     applyF(); closeM('stModal');
     document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
     updKPIs(); rndrDashTbl(); rndrAlerts();
-  } catch(e) {
-    console.error('saveSt Firestore error:', e);
-    toast('error','فشل الحفظ', e.message||'تعذّر حفظ بيانات المتدرب');
-  } finally {
+  }).catch(e=>{
     showFbLoading(false);
-  }
+    console.error('saveSt Firestore error:', e);
+    toast('error','خطأ Firebase', e.message||'تعذّر الحفظ');
+  });
 }
 function viewSt(idx){
   curIdx=idx; const s=allStudents[idx];
@@ -2206,17 +2087,17 @@ function viewSt(idx){
   document.getElementById('vBody').innerHTML=`
     <div style="display:flex;align-items:center;gap:13px;margin-bottom:18px;padding:14px;background:var(--bg);border-radius:10px">
       <div class="sav" style="width:54px;height:54px;font-size:1.3rem;background:${s.deptColor}">${s.name[0]}</div>
-      <div><div style="font-size:1.1rem;font-weight:900;color:var(--navy)">${escapeHTML(s.name)}</div>
-      <div style="color:var(--muted);font-size:.8rem;margin-top:3px">${escapeHTML(s.id)} · <span class="dc ${s.deptCls}">${escapeHTML(s.dept)}</span></div>
+      <div><div style="font-size:1.1rem;font-weight:900;color:var(--navy)">${s.name}</div>
+      <div style="color:var(--muted);font-size:.8rem;margin-top:3px">${s.id} · <span class="dc ${s.deptCls}">${s.dept}</span></div>
       <div style="margin-top:7px">
         <span class="sbadge ${STATUS_CSS[s.status]}">${STATUS_MAP[s.status]}</span>
         ${canMgr?'<span class="pb-ok"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></span>مادتك</span>':'<span class="pb-no"><span class="svg-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>مادة أخرى</span>'}
       </div></div>
     </div>
     <div class="fg2" style="margin-bottom:16px">
-      <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">المادة</div><div style="font-weight:700">${escapeHTML(s.subject)}</div></div>
-      <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">المدرب</div><div style="font-weight:700">${escapeHTML(s.trainer)}</div></div>
-      <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">سبب التسرب</div><div style="font-weight:700">${escapeHTML(s.reason)}</div></div>
+      <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">المادة</div><div style="font-weight:700">${s.subject}</div></div>
+      <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">المدرب</div><div style="font-weight:700">${s.trainer}</div></div>
+      <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">سبب التسرب</div><div style="font-weight:700">${s.reason}</div></div>
       <div><div style="font-size:.72rem;color:var(--muted);margin-bottom:3px">التاريخ</div><div style="font-weight:700">${s.date}</div></div>
     </div>
     <div style="background:var(--bg);padding:13px;border-radius:9px;margin-bottom:12px">
@@ -2224,100 +2105,16 @@ function viewSt(idx){
       <div style="height:8px;background:var(--border);border-radius:20px;overflow:hidden"><div style="height:100%;width:${Math.min(pct,100)}%;background:${bc};border-radius:20px;transition:width 1s ease"></div></div>
       <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:.68rem;color:var(--muted)"><span>${s.absences} غياب</span><span>الحد: ${s.maxAbs}</span></div>
     </div>
-    ${s.notes?`<div style="background:rgba(0,181,181,.06);border:1px solid rgba(0,181,181,.18);border-radius:8px;padding:11px"><div style="font-size:.7rem;color:var(--teal);font-weight:700;margin-bottom:2px"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg></span> ملاحظات</div><div style="font-size:.82rem">${escapeHTML(s.notes)}</div></div>`:''}`; 
+    ${s.notes?`<div style="background:rgba(0,181,181,.06);border:1px solid rgba(0,181,181,.18);border-radius:8px;padding:11px"><div style="font-size:.7rem;color:var(--teal);font-weight:700;margin-bottom:2px"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg></span> ملاحظات</div><div style="font-size:.82rem">${s.notes}</div></div>`:''}`; 
   document.getElementById('veBtn').disabled=!canMgr||IS_COORD();
   document.getElementById('veBtn').onclick=canMgr&&!IS_COORD()?()=>{closeM('viewModal');editSt(idx);}:null;
   openModal('viewModal');
-}
-function printStudentReport(idx){
-  const s=allStudents[idx];
-  if(!s){toast('error','التقرير','تعذر العثور على بيانات المتدرب');return;}
-
-  const p1=s.pledge1||{};
-  const p2=s.pledge2||{};
-  const p1Done=!!p1.done, p2Done=!!p2.done;
-
-  let pledgeSummary='لم يحصل على أي تعهد مسجل';
-  let pledgeClass='neutral';
-  if(p1Done && p2Done){
-    pledgeSummary='حصل على التعهد الأول والتعهد الثاني الأخير';
-    pledgeClass='danger';
-  }else if(p1Done){
-    pledgeSummary='حصل على التعهد الأول فقط';
-    pledgeClass='warn';
-  }else if(p2Done){
-    pledgeSummary='تم تسجيل التعهد الثاني الأخير دون اكتمال التعهد الأول';
-    pledgeClass='danger';
-  }else if(p1.date||p2.date){
-    pledgeSummary='يوجد تعهد مسجل ولم يكتمل تأكيد التوقيع';
-    pledgeClass='warn';
-  }
-
-  const pct=absPct(s);
-  const safe=v=>escapeHTML(v==null?'—':String(v));
-  const dateNow=new Date().toLocaleDateString('ar-SA');
-  const pledgeState=(done,date)=>done?'تم التوقيع':date?'مسجل دون تأكيد التوقيع':'لم يحصل';
-
-  const w=window.open('','_blank','width=900,height=900');
-  if(!w){toast('error','التقرير','يرجى السماح بالنوافذ المنبثقة لطباعة التقرير');return;}
-
-  const reportHtml = `
-<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
-<title>تقرير متدرب - ${safe(s.name)}</title>
-<style>
-*{box-sizing:border-box}body{font-family:Arial,Tahoma,sans-serif;color:#132238;margin:0;background:#fff;line-height:1.7}
-.page{width:100%;max-width:850px;margin:0 auto;padding:32px}.head{text-align:center;border-bottom:3px solid #0b7d83;padding-bottom:16px;margin-bottom:22px}
-.brand{font-size:22px;font-weight:800}.college{font-size:13px;color:#667085}.title{font-size:20px;font-weight:800;margin-top:10px}.meta{font-size:11px;color:#667085;margin-top:4px}
-.card{border:1px solid #d9e1ea;border-radius:10px;padding:16px;margin-bottom:14px}.card-title{font-weight:800;font-size:14px;margin-bottom:10px;color:#0b7d83}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.item{padding:9px 10px;background:#f7f9fb;border-radius:7px}.label{font-size:11px;color:#667085}.value{font-size:14px;font-weight:700}
-.pledge-summary{padding:16px;border-radius:9px;text-align:center;font-size:16px;font-weight:800;border:2px solid}
-.pledge-summary.danger{color:#b42318;background:#fef3f2;border-color:#fecdca}.pledge-summary.warn{color:#9a6700;background:#fffaeb;border-color:#fedf89}.pledge-summary.neutral{color:#475467;background:#f2f4f7;border-color:#d0d5dd}
-table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #d9e1ea;padding:8px;text-align:right}th{background:#f7f9fb}
-.footer{margin-top:22px;display:flex;justify-content:space-between;font-size:11px;color:#667085;border-top:1px solid #d9e1ea;padding-top:10px}.print-note{font-size:10px;color:#667085;margin-top:10px}
-@media print{body{print-color-adjust:exact;-webkit-print-color-adjust:exact}.page{padding:15mm}.no-print{display:none}}
-</style></head><body><div class="page">
-<div class="head"><div class="brand">تسرب</div><div class="college">الكلية التقنية بشرورة</div><div class="title">تقرير فردي عن حالة المتدرب</div><div class="meta">تاريخ التقرير: ${safe(dateNow)}</div></div>
-
-<div class="card"><div class="card-title">بيانات المتدرب</div><div class="grid">
-<div class="item"><div class="label">اسم المتدرب</div><div class="value">${safe(s.name)}</div></div>
-<div class="item"><div class="label">الرقم التدريبي</div><div class="value">${safe(s.trainingId||s.studentId||s.id)}</div></div>
-<div class="item"><div class="label">القسم</div><div class="value">${safe(s.dept)}</div></div>
-<div class="item"><div class="label">التخصص</div><div class="value">${safe(s.spec)}</div></div>
-<div class="item"><div class="label">المادة</div><div class="value">${safe(s.subject)}</div></div>
-<div class="item"><div class="label">المدرب</div><div class="value">${safe(s.trainer)}</div></div>
-<div class="item"><div class="label">سبب الحرمان</div><div class="value">${safe(s.reason)}</div></div>
-<div class="item"><div class="label">الحالة الحالية</div><div class="value">${safe(STATUS_MAP[s.status]||s.status)}</div></div>
-</div></div>
-
-<div class="card"><div class="card-title">الحضور والغياب</div><div class="grid">
-<div class="item"><div class="label">عدد الغيابات</div><div class="value">${safe(s.absences||0)}</div></div>
-<div class="item"><div class="label">إجمالي الحصص</div><div class="value">${safe(s.totalSessions||100)}</div></div>
-<div class="item"><div class="label">نسبة الغياب</div><div class="value">${safe(pct)}%</div></div>
-<div class="item"><div class="label">تاريخ التسجيل</div><div class="value">${safe(s.date)}</div></div>
-</div></div>
-
-<div class="card"><div class="card-title">النتيجة الرسمية للتعهدات</div>
-<div class="pledge-summary ${pledgeClass}">${safe(pledgeSummary)}</div>
-<div style="margin-top:12px"><table><thead><tr><th>نوع التعهد</th><th>التاريخ</th><th>الحالة</th></tr></thead><tbody>
-<tr><td>التعهد الأول</td><td>${safe(p1.date||'—')}</td><td>${safe(pledgeState(p1Done,p1.date))}</td></tr>
-<tr><td>التعهد الثاني الأخير</td><td>${safe(p2.date||'—')}</td><td>${safe(pledgeState(p2Done,p2.date))}</td></tr>
-</tbody></table></div>
-<div class="print-note">يعتمد تحديد حصول المتدرب على التعهد في هذا التقرير على حالة «تم التوقيع» المسجلة في ملفه.</div>
-</div>
-
-${s.notes?'<div class="card"><div class="card-title">ملاحظات</div><div>'+safe(s.notes)+'</div></div>':''}
-<div class="footer"><span>نظام تسرب — لرصد المتدربين المحرومين</span><span>الكلية التقنية بشرورة</span></div>
-</div><script>window.onload=function(){setTimeout(function(){window.print()},250)};<\/script></body></html>`;
-
-  w.document.open();
-  w.document.write(reportHtml);
-  w.document.close();
 }
 function delSt(idx){
   if(IS_COORD()){toast('warn','صلاحية','أنت في وضع اطلاع فقط');return;}
   const s=allStudents[idx];
   if(!CAN_EDIT(s)){toast('warn','صلاحية','لا يمكنك حذف طالب من مادة أخرى');return;}
-  if(!confirm(`حذف سجل: ${escapeHTML(s.name)}؟`))return;
+  if(!confirm(`حذف سجل: ${s.name}؟`))return;
   const stId = allStudents[idx].id;
   showFbLoading(true);
   fsDel(COL.students, stId).then(ok=>{
@@ -2325,8 +2122,7 @@ function delSt(idx){
     if(!ok) return;
     allStudents.splice(idx,1); applyF();
     document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
-    updKPIs(); rndrDashTbl(); rndrAlerts();
-    toast('success','تم الحذف','تم حذف السجل من قاعدة البيانات بنجاح');
+    updKPIs(); toast('success','تم الحذف','تم حذف السجل بنجاح');
   });
 }
 function doAlert(){const s=curIdx>=0?allStudents[curIdx]:null;toast('success','تنبيه',`تم إرسال تنبيه بشأن ${s?.name||'الطالب'}`);closeM('viewModal');}
@@ -2358,21 +2154,21 @@ function rndrDL(){
   ['kd0','mc0','tb0'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=c;});
   const el=document.getElementById('ml0');if(!el)return;
   if(!c){el.innerHTML=`<div class="empty"><span class="svg-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg></span><p>لا توجد أقسام</p></div>`;return;}
-  el.innerHTML=DEPTS.map((d,i)=>`<div class="mi"><div class="mi-ico" style="background:${d.color}18;color:${d.color}">${deptIconSVG(d.icon)}</div><div style="flex:1"><div class="mi-n">${escapeHTML(d.name)}</div><div class="mi-m"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3.5"/><circle cx="17" cy="7" r="3.5"/><path d="M1 20c0-3.3 3.6-6 8-6"/><path d="M23 20c0-3.3-3.6-6-8-6s-8 2.7-8 6"/></svg></span>${escapeHTML(d.students)} متدرب<span style="margin:0 4px">|</span><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span>${escapeHTML(d.cnt)} مستهدف</div></div><div class="mi-acts"><button class="del-btn" onclick="delMg('dept',${i})"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span></button></div></div>`).join('');
+  el.innerHTML=DEPTS.map((d,i)=>`<div class="mi"><div class="mi-ico" style="background:${d.color}18;color:${d.color}">${deptIconSVG(d.icon)}</div><div style="flex:1"><div class="mi-n">${d.name}</div><div class="mi-m"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3.5"/><circle cx="17" cy="7" r="3.5"/><path d="M1 20c0-3.3 3.6-6 8-6"/><path d="M23 20c0-3.3-3.6-6-8-6s-8 2.7-8 6"/></svg></span>${d.students} متدرب<span style="margin:0 4px">|</span><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="22" y1="12" x2="18" y2="12"/><line x1="6" y1="12" x2="2" y2="12"/><line x1="12" y1="6" x2="12" y2="2"/><line x1="12" y1="22" x2="12" y2="18"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span>${d.cnt} مستهدف</div></div><div class="mi-acts"><button class="del-btn" onclick="delMg('dept',${i})"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span></button></div></div>`).join('');
 }
 function rndrSL(){
   const c=SUBJECTS.length;
   ['kd1','mc1','tb1'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=c;});
   const el=document.getElementById('ml1');if(!el)return;
   if(!c){el.innerHTML=`<div class="empty"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M2 3h9a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H2z"/><path d="M22 3h-9a2 2 0 0 0-2 2v14a1 1 0 0 0 1 1h10z"/></svg></span><p>لا توجد مواد</p></div>`;return;}
-  el.innerHTML=SUBJECTS.map((s,i)=>`<div class="mi"><div class="mi-ico" style="background:${s.color}18;color:${s.color}">${deptIconSVG(s.icon)}</div><div style="flex:1"><div class="mi-n">${escapeHTML(s.name)}</div><div class="mi-m"><span class="svg-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg></span>${escapeHTML(s.dept)}</div></div><div class="mi-acts"><button class="del-btn" onclick="delMg('subject',${i})"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span></button></div></div>`).join('');
+  el.innerHTML=SUBJECTS.map((s,i)=>`<div class="mi"><div class="mi-ico" style="background:${s.color}18;color:${s.color}">${deptIconSVG(s.icon)}</div><div style="flex:1"><div class="mi-n">${s.name}</div><div class="mi-m"><span class="svg-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg></span>${s.dept}</div></div><div class="mi-acts"><button class="del-btn" onclick="delMg('subject',${i})"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span></button></div></div>`).join('');
 }
 function rndrTL(){
   const c=TRAINERS.length;
   ['kd2','mc2','tb2'].forEach(id=>{const el=document.getElementById(id);if(el)el.textContent=c;});
   const el=document.getElementById('ml2');if(!el)return;
   if(!c){el.innerHTML=`<div class="empty"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M2 3h20v14H2z"/><path d="M8 21h8M12 17v4"/><line x1="6" y1="8" x2="18" y2="8"/><line x1="6" y1="12" x2="12" y2="12"/></svg></span><p>لا يوجد مدربون</p></div>`;return;}
-  el.innerHTML=TRAINERS.map((t,i)=>`<div class="mi"><div class="mi-ico" style="background:${AVC[i%AVC.length]}22;color:${AVC[i%AVC.length]}"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M12 12l-2 4 2 1 2-1-2-4z"/><path d="M5 21c0-4 3.1-7 7-7s7 3 7 7"/></svg></span></div><div style="flex:1"><div class="mi-n">${escapeHTML(t.name)}</div><div class="mi-m"><span class="svg-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg></span>${escapeHTML(t.dept)}<span style="margin:0 4px">|</span><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>${escapeHTML(t.subject)}</div></div><div class="mi-acts"><button class="del-btn" onclick="delMg('trainer',${i})"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span></button></div></div>`).join('');
+  el.innerHTML=TRAINERS.map((t,i)=>`<div class="mi"><div class="mi-ico" style="background:${AVC[i%AVC.length]}22;color:${AVC[i%AVC.length]}"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="4"/><path d="M12 12l-2 4 2 1 2-1-2-4z"/><path d="M5 21c0-4 3.1-7 7-7s7 3 7 7"/></svg></span></div><div style="flex:1"><div class="mi-n">${t.name}</div><div class="mi-m"><span class="svg-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/><line x1="15" y1="3" x2="15" y2="21"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/></svg></span>${t.dept}<span style="margin:0 4px">|</span><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span>${t.subject}</div></div><div class="mi-acts"><button class="del-btn" onclick="delMg('trainer',${i})"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span></button></div></div>`).join('');
 }
 function delMg(type,idx){
   if(!IS_ADMIN()){toast('warn','صلاحية','فقط المسؤول يمكنه الحذف');return;}
@@ -2393,13 +2189,13 @@ function openMg(type){
   if(!IS_ADMIN()){toast('warn','صلاحية','فقط المسؤول');return;}
   curMgType=type;
   document.getElementById('mgTtl').textContent={dept:'إضافة قسم',subject:'إضافة مادة',trainer:'إضافة مدرب'}[type];
-  const dO=DEPTS.map(d=>`<option>${escapeHTML(d.name)}</option>`).join('');
+  const dO=DEPTS.map(d=>`<option>${d.name}</option>`).join('');
   const DI=['fas fa-laptop-code','fas fa-microchip','fas fa-wrench','fas fa-briefcase','fas fa-drafting-compass','fas fa-car-engine','fas fa-flask','fas fa-network-wired']; // icon keys for dept picker
   const SI=['fas fa-network-wired','fas fa-code','fas fa-shield-halved','fas fa-database','fas fa-microchip','fas fa-diagram-project','fas fa-bolt','fas fa-car-engine'];
   const DC=['#3B82F6','#F59E0B','#EF4444','#22C55E','#00B5B5','#A855F7'];
   if(type==='dept') document.getElementById('mgBody').innerHTML=`<div class="fg2"><div class="fg full" style="margin:0"><label class="fl">اسم القسم *</label><input class="fc2" id="mg_name" placeholder="مثال: تقنية الغذاء"></div><div class="fg" style="margin:0"><label class="fl">الأيقونة</label><select class="fsel2" id="mg_icon">${DI.map(i=>`<option value="${i}">${i.replace('fas fa-','')}</option>`).join('')}</select></div><div class="fg" style="margin:0"><label class="fl">اللون</label><select class="fsel2" id="mg_color">${DC.map(c=>`<option value="${c}">${c}</option>`).join('')}</select></div><div class="fg" style="margin:0"><label class="fl">المتدربون</label><input class="fc2" id="mg_std" type="number" value="0"></div><div class="fg" style="margin:0"><label class="fl">المستهدفون</label><input class="fc2" id="mg_cnt" type="number" value="0"></div></div>`;
   else if(type==='subject') document.getElementById('mgBody').innerHTML=`<div class="fg2"><div class="fg full" style="margin:0"><label class="fl">اسم المادة *</label><input class="fc2" id="mg_name" placeholder="مثال: برمجة Python"></div><div class="fg" style="margin:0"><label class="fl">القسم *</label><select class="fsel2" id="mg_dept">${dO}</select></div><div class="fg" style="margin:0"><label class="fl">الأيقونة</label><select class="fsel2" id="mg_icon">${SI.map(i=>`<option value="${i}">${i.replace('fas fa-','')}</option>`).join('')}</select></div></div>`;
-  else document.getElementById('mgBody').innerHTML=`<div class="fg2"><div class="fg full" style="margin:0"><label class="fl">اسم المدرب *</label><input class="fc2" id="mg_name" placeholder="م. عبدالله العمري"></div><div class="fg" style="margin:0"><label class="fl">القسم *</label><select class="fsel2" id="mg_dept">${dO}</select></div><div class="fg" style="margin:0"><label class="fl">المادة *</label><select class="fsel2" id="mg_subj">${SUBJECTS.map(s=>`<option>${escapeHTML(s.name)}</option>`).join('')}</select></div><div class="fg full" style="margin:0"><label class="fl">التخصص</label><input class="fc2" id="mg_spec" placeholder="شبكات حاسوبية"></div></div>`;
+  else document.getElementById('mgBody').innerHTML=`<div class="fg2"><div class="fg full" style="margin:0"><label class="fl">اسم المدرب *</label><input class="fc2" id="mg_name" placeholder="م. عبدالله العمري"></div><div class="fg" style="margin:0"><label class="fl">القسم *</label><select class="fsel2" id="mg_dept">${dO}</select></div><div class="fg" style="margin:0"><label class="fl">المادة *</label><select class="fsel2" id="mg_subj">${SUBJECTS.map(s=>`<option>${s.name}</option>`).join('')}</select></div><div class="fg full" style="margin:0"><label class="fl">التخصص</label><input class="fc2" id="mg_spec" placeholder="شبكات حاسوبية"></div></div>`;
   openModal('mgModal');
 }
 function saveMg(){
@@ -2476,7 +2272,7 @@ function expCSV(){
   if(IS_TRAINER())data=data.filter(s=>s.subject===S.trainerSubject);
   const h=['الرقم','الاسم','القسم','المادة','الغيابات','السبب','المدرب','الحالة'];
   const rows=data.map((s,i)=>[i+1,s.name,s.dept,s.subject,s.absences,s.reason,s.trainer,STATUS_MAP[s.status]]);
-  const csv=[h,...rows].map(r=>r.map(csvCell).join(',')).join('\n');
+  const csv=[h,...rows].map(r=>r.join(',')).join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download='tasarrob-report.csv';a.click();
@@ -2484,54 +2280,33 @@ function expCSV(){
 }
 
 // ── ATTACHMENTS ───────────────────────────────────────────────
-function validateAttachment(file){
-  if(!file) return {ok:false,msg:'اختر ملفاً أولاً'};
-  if(file.size>MAX_ATTACHMENT_BYTES) return {ok:false,msg:'الحد الأقصى لحجم الملف 10 ميجابايت'};
-  if(!ALLOWED_ATTACHMENT_TYPES.has(file.type)) return {ok:false,msg:'نوع الملف غير مسموح. المسموح: PDF وWord وExcel وPNG وJPG'};
-  return {ok:true};
-}
-function showPendingFile(file){
-  const zone=document.getElementById('dropZ');
-  if(!zone) return;
-  zone.innerHTML=`<span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 14 11 16 15 12"/></svg></span><p style="color:var(--teal);font-weight:700">${escapeHTML(file.name)}</p><p style="font-size:.7rem;color:var(--muted)">${(file.size/1024).toFixed(1)} KB</p>`;
-}
 function hFile(input){
-  const file=input.files?.[0];
-  if(!file) return;
-  const check=validateAttachment(file);
-  if(!check.ok){input.value='';pendFile=null;toast('error','ملف غير صالح',check.msg);return;}
-  pendFile=file;
-  showPendingFile(file);
+  if(input.files[0]){
+    pendFile=input.files[0];
+    document.getElementById('dropZ').innerHTML=`<span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 14 11 16 15 12"/></svg></span><p style="color:var(--teal);font-weight:700">${pendFile.name}</p><p style="font-size:.7rem;color:var(--muted)">${(pendFile.size/1024).toFixed(1)} KB</p>`;
+  }
 }
-async function addAtt(){
+function addAtt(){
   if(!IS_ADMIN()){toast('warn','صلاحية','فقط المسؤول');return;}
-  if(!pendFile){toast('error','لم يتم اختيار ملف','اختر ملفاً أولاً');return;}
-  const check=validateAttachment(pendFile);
-  if(!check.ok){toast('error','ملف غير صالح',check.msg);return;}
-  const name= document.getElementById('attName').value.trim() || pendFile.name;
+  const name=document.getElementById('attName').value.trim()||(pendFile?.name)||'مرفق';
   const type=document.getElementById('attType').value;
-  const safeName=String(name).slice(0,180);
-  const newId='att_'+Date.now()+'_'+Math.random().toString(36).slice(2,8);
-  const path=`attachments/${newId}/${encodeURIComponent(pendFile.name)}`;
+  const newAtt={id:'att_'+Date.now(),name,type,ext:pendFile?pendFile.name.split('.').pop().toUpperCase():'PDF',date:new Date().toLocaleDateString('ar-SA'),size:pendFile?`${(pendFile.size/1024).toFixed(1)} KB`:'—',createdAt:Date.now()};
   showFbLoading(true);
-  try{
-    const ref=storage.ref(path);
-    const snap=await ref.put(pendFile,{contentType:pendFile.type});
-    const url=await snap.ref.getDownloadURL();
-    const newAtt={id:newId,name:safeName,type,ext:pendFile.name.split('.').pop().toUpperCase(),date:new Date().toLocaleDateString('ar-SA'),size:`${(pendFile.size/1024).toFixed(1)} KB`,createdAt:Date.now(),url,storagePath:path,contentType:pendFile.type,createdBy:S.userId||'admin'};
-    const ok=await fsSet(COL.atts,newId,newAtt);
-    if(!ok){try{await ref.delete();}catch(_){};return;}
+  fsSet(COL.atts, String(newAtt.id), newAtt).then(ok=>{
+    showFbLoading(false);
+    if(!ok) return;
     atts_list.unshift(newAtt);
     pendFile=null;
     document.getElementById('attName').value='';
     document.getElementById('fi').value='';
-    document.getElementById('dropZ').innerHTML='<span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 1 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></span><p>اضغط لاختيار ملف أو اسحب وأفلت</p>';
+    document.getElementById('dropZ').innerHTML='<i></i><p>اضغط لاختيار ملف أو اسحب وأفلت</p>';
     rndrAtts();
     toast('success','تم الرفع','تم رفع المرفق بنجاح');
-  }catch(e){
-    console.error('Attachment upload error:',e);
-    toast('error','فشل الرفع',e.message||'تعذر رفع الملف');
-  }finally{showFbLoading(false);}
+  });
+  document.getElementById('attName').value='';
+  document.getElementById('fi').value='';
+  document.getElementById('dropZ').innerHTML=`<span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg></span><p>اضغط لاختيار ملف أو اسحب وأفلت</p>`;
+  rndrAtts(); toast('success','تم الرفع',`تم إضافة "${name}"`);
 }
 function rndrAtts(){
   const c=atts_list.length;
@@ -2539,27 +2314,30 @@ function rndrAtts(){
   const b=document.getElementById('nb1');if(b){b.textContent=c;b.style.display=c?'flex':'none';}
   const el=document.getElementById('attList');
   if(!c){el.innerHTML=`<div class="empty"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg></span><p>لا توجد مرفقات</p></div>`;return;}
-  const EI={PDF:'fa-file-pdf',DOC:'fa-file-word',DOCX:'fa-file-word',XLS:'fa-file-excel',XLSX:'fa-file-excel',PNG:'fa-file-image',JPG:'fa-file-image',JPEG:'fa-file-image'};
-  el.innerHTML=atts_list.map((a,i)=>`<div class="att-item"><i class="fas ${EI[a.ext]||'fa-file'} fa-lg" style="color:var(--teal)"></i><span><strong style="font-size:.82rem">${escapeHTML(a.name)}</strong><br><small style="color:var(--muted)">${escapeHTML(a.type)} · ${escapeHTML(a.ext)} · ${escapeHTML(a.size)} · ${escapeHTML(a.date)}</small></span>${a.url?`<a href="${escapeHTML(a.url)}" target="_blank" rel="noopener noreferrer" class="btn btn-sm">فتح</a>`:''}<button onclick="delAtt(${i})" style="background:none;border:none;color:var(--red);cursor:pointer"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4v2"/></svg></span></button></div>`).join('');
+  const EI={PDF:'fa-file-pdf',DOC:'fa-file-word',DOCX:'fa-file-word',XLS:'fa-file-excel',XLSX:'fa-file-excel',PNG:'fa-file-image',JPG:'fa-file-image'};
+  el.innerHTML=atts_list.map((a,i)=>`<div class="att-item"><i class="fas ${EI[a.ext]||'fa-file'} fa-lg" style="color:var(--teal)"></i><span><strong style="font-size:.82rem">${a.name}</strong><br><small style="color:var(--muted)">${a.type} · ${a.ext} · ${a.size} · ${a.date}</small></span><button onclick="delAtt(${i})" style="background:none;border:none;color:var(--red);cursor:pointer"><span class="svg-icon"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg></span></button></div>`).join('');
 }
-async function delAtt(i){
+function delAtt(i){
   if(!IS_ADMIN()){toast('warn','صلاحية','للمسؤول فقط');return;}
   if(!confirm('حذف هذا المرفق؟'))return;
   const att=atts_list[i];
-  if(!att?.id)return;
-  showFbLoading(true);
-  try{
-    if(att.storagePath){try{await storage.ref(att.storagePath).delete();}catch(e){console.warn('Storage delete skipped:',e.code);}}
-    const ok=await fsDel(COL.atts,String(att.id));
-    if(ok){atts_list.splice(i,1);rndrAtts();toast('success','حذف','تم حذف المرفق');}
-  }finally{showFbLoading(false);}
+  if(att&&att.id){
+    showFbLoading(true);
+    fsDel(COL.atts, String(att.id)).then(ok=>{
+      showFbLoading(false);
+      if(!ok) return;
+      atts_list.splice(i,1); rndrAtts();
+      toast('success','حذف','تم حذف المرفق');
+    });
+  } else {
+    atts_list.splice(i,1); rndrAtts();
+    toast('success','حذف','تم حذف المرفق');
+  }
 }
 const dz=document.getElementById('dropZ');
-if(dz){
-  ['dragover','dragenter'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.style.borderColor='var(--teal)';},false));
-  ['dragleave','drop'].forEach(e=>dz.addEventListener(e,()=>dz.style.borderColor='',false));
-  dz.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f){const check=validateAttachment(f);if(!check.ok){toast('error','ملف غير صالح',check.msg);return;}pendFile=f;showPendingFile(f);}},false);
-}
+['dragover','dragenter'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.style.borderColor='var(--teal)';},false));
+['dragleave','drop'].forEach(e=>dz.addEventListener(e,()=>dz.style.borderColor=''));
+dz.addEventListener('drop',e=>{e.preventDefault();const f=e.dataTransfer.files[0];if(f){pendFile=f;dz.innerHTML=`<span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><polyline points="9 14 11 16 15 12"/></svg></span><p style="color:var(--teal);font-weight:700">${f.name}</p>`;}},false);
 
 // ── NOTIFICATIONS ─────────────────────────────────────────────
 function rndrNotifs(){
@@ -2570,12 +2348,12 @@ function rndrNotifs(){
   syncBottomNav(document.querySelector('.view.active')?.id?.replace('view-','')||'dashboard');
   document.getElementById('notifList').innerHTML=NOTIFS.map((n,i)=>`
     <div class="nc ${n.unread?'unread':''}" onclick="readN(this,${i})">
-      <div class="nico ${escapeHTML(n.cls)}"><i class="fas ${escapeHTML(n.icon)}"></i></div>
-      <div class="nb"><div class="nttl">${escapeHTML(n.title)}</div><div class="ndesc">${escapeHTML(n.desc)}</div><div class="ntime"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>${escapeHTML(n.time)}</div></div>
+      <div class="nico ${n.cls}"><i class="fas ${n.icon}"></i></div>
+      <div class="nb"><div class="nttl">${n.title}</div><div class="ndesc">${n.desc}</div><div class="ntime"><span class="svg-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>${n.time}</div></div>
       ${n.unread?'<div class="udot"></div>':''}
     </div>`).join('');
 }
-async function readN(el,i){const n=NOTIFS[i];if(!n)return;n.unread=false;el.classList.remove('unread');el.querySelector('.udot')?.remove();rndrNotifs();try{await fsSet(COL.notifs,n.id,{unread:false,readAt:Date.now(),readBy:S.userId||'admin'});}catch(e){console.warn('notification read state not saved',e);}}
+function readN(el,i){NOTIFS[i].unread=false;el.classList.remove('unread');el.querySelector('.udot')?.remove();rndrNotifs();}
 function markRead(){NOTIFS.forEach(n=>{
   if(n.unread){ n.unread=false; fsSet(COL.notifs,n.id,{unread:false}); }
 }); rndrNotifs();toast('success','تم','تحديد الكل كمقروء');}
@@ -2595,6 +2373,8 @@ function saveNotif(){
     closeM('notifModal'); rndrNotifs();
     toast('success','تم الإرسال','تم إضافة التنبيه');
   });
+  document.getElementById('nTtl').value='';document.getElementById('nDesc').value='';
+  toast('success','تم الإرسال','تم إضافة التنبيه');
 }
 
 // ── SETTINGS ─────────────────────────────────────────────────
@@ -2649,10 +2429,8 @@ function doIdSearch(q){
   if(!q){el.innerHTML='';return;}
 
   // البحث في جميع الطلاب (محرومين وغير محرومين)
-  const nq=normalizeTrainingId(q);
   const results=allStudents.filter(s=>
-    String(s.name||'').toLowerCase().includes(String(q).toLowerCase())||
-    normalizeTrainingId(getTrainingId(s)).toLowerCase().includes(nq.toLowerCase())
+    s.id.includes(q)||s.name.includes(q)
   );
 
   if(!results.length){
@@ -2677,8 +2455,8 @@ function doIdSearch(q){
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
         <div class="sav" style="width:46px;height:46px;font-size:1.1rem;background:${s.deptColor};flex-shrink:0">${s.name[0]}</div>
         <div style="flex:1">
-          <div style="font-weight:800;font-size:.95rem;color:var(--navy)">${escapeHTML(s.name)}</div>
-          <div style="font-size:.76rem;color:var(--muted);margin-top:1px">الرقم التدريبي: <strong>${escapeHTML(getTrainingId(s)||'غير مضاف')}</strong> · ${escapeHTML(s.dept)}</div>
+          <div style="font-weight:800;font-size:.95rem;color:var(--navy)">${s.name}</div>
+          <div style="font-size:.76rem;color:var(--muted);margin-top:1px">الرقم: <strong>${s.id}</strong> · ${s.dept}</div>
           <div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">
             <span class="sbadge ${STATUS_CSS[s.status]}">${STATUS_MAP[s.status]}</span>
             ${depCount>1||depHistory>1?`<span style="background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25);padding:2px 8px;border-radius:20px;font-size:.69rem;font-weight:700">⚠️ تكرر الحرمان ${Math.max(depCount,depHistory)} مرة</span>`:''}
@@ -2811,8 +2589,8 @@ function rndrUsers(){
       <div class="usr-card-top">
         <div class="usr-av ${u.role}">${(u.name||'?')[0]}</div>
         <div>
-          <div class="usr-name">${escapeHTML(u.name)}</div>
-          <div class="usr-meta">@${escapeHTML(u.username)}</div>
+          <div class="usr-name">${u.name}</div>
+          <div class="usr-meta">@${u.username}</div>
           <div class="usr-badge ${u.role}">
             ${u.role==='admin'
               ? `<span class="svg-icon" style="font-size:12px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg></span> مدير نظام`
@@ -2824,10 +2602,10 @@ function rndrUsers(){
         </div>
       </div>
       <div class="usr-detail">
-        ${u.role==='trainer'&&u.subject?`<div class="row"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M2 3h9a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H2z"/><path d="M22 3h-9a2 2 0 0 0-2 2v14a1 1 0 0 0 1 1h10z"/></svg></span><span>${escapeHTML(u.subject)}</span></div>`:''}
-        ${u.phone?`<div class="row"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.3h3a2 2 0 0 1 2 1.72c.13 1 .37 1.97.72 2.9a2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.93.35 1.9.59 2.9.72A2 2 0 0 1 22 16.92z"/></svg></span><span>${escapeHTML(u.phone)}</span></div>`:''}
-        ${u.notes?`<div class="row"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg></span><span>${escapeHTML(u.notes)}</span></div>`:''}
-        <div class="row"><span class="svg-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><span>${u.authUid?'حساب Firebase Auth مرتبط':'يحتاج ربط حساب الدخول'}</span></div>
+        ${u.role==='trainer'&&u.subject?`<div class="row"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M2 3h9a2 2 0 0 1 2 2v14a1 1 0 0 1-1 1H2z"/><path d="M22 3h-9a2 2 0 0 0-2 2v14a1 1 0 0 0 1 1h10z"/></svg></span><span>${u.subject}</span></div>`:''}
+        ${u.phone?`<div class="row"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.3h3a2 2 0 0 1 2 1.72c.13 1 .37 1.97.72 2.9a2 2 0 0 1-.45 2.11L7.91 9a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.93.35 1.9.59 2.9.72A2 2 0 0 1 22 16.92z"/></svg></span><span>${u.phone}</span></div>`:''}
+        ${u.notes?`<div class="row"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="12" y2="17"/></svg></span><span>${u.notes}</span></div>`:''}
+        <div class="row"><span class="svg-icon"><svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span><span style="letter-spacing:.1em">${'•'.repeat(Math.min(u.password.length,8))}</span></div>
       </div>
       <div class="usr-acts">
         <button class="usr-edit" onclick="editUser('${u.id}')"><span class="svg-icon"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></span> تعديل</button>
@@ -2864,7 +2642,7 @@ function openAddUser(){
   document.getElementById('adminRoleWarn').style.display='none';
   // Populate subject dropdown
   const sel=document.getElementById('uSubj');
-  sel.innerHTML=SUBJECTS.map(s=>`<option value="${escapeHTML(s.name)}">${escapeHTML(s.name)}</option>`).join('');
+  sel.innerHTML=SUBJECTS.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
   openModal('usrModal');
 }
 
@@ -2876,13 +2654,12 @@ function editUser(id){
   document.getElementById('uName').value=u.name;
   document.getElementById('uPhone').value=u.phone||'';
   document.getElementById('uUser').value=u.username;
-  document.getElementById('uPass').value='';
-  const pw=document.getElementById('uPass'); if(pw) pw.placeholder='تغيير كلمة المرور يتم من Firebase Auth';
+  document.getElementById('uPass').value=u.password;
   document.getElementById('uNotes').value=u.notes||'';
   document.getElementById('uRole').value=u.role;
   document.getElementById('uSubjWrap').style.display=u.role==='trainer'?'block':'none';
   const sel=document.getElementById('uSubj');
-  sel.innerHTML=SUBJECTS.map(s=>`<option value="${escapeHTML(s.name)}">${escapeHTML(s.name)}</option>`).join('');
+  sel.innerHTML=SUBJECTS.map(s=>`<option value="${s.name}">${s.name}</option>`).join('');
   if(u.subject)sel.value=u.subject;
   document.getElementById('uUserCheck').textContent='';
   document.getElementById('pwStr').className='pw-strength';
@@ -2932,7 +2709,7 @@ function saveUser(){
   if(!name){toast('error','خطأ','أدخل اسم المستخدم الكامل');return;}
   if(!username){toast('error','خطأ','أدخل اسم الدخول');return;}
   if(!/^[a-zA-Z0-9._-]+$/.test(username)){toast('error','خطأ','اسم الدخول: لاتيني فقط بدون مسافات');return;}
-  if(!curUsrId && (!password||password.length<6)){toast('error','خطأ','كلمة المرور 6 أحرف على الأقل');return;}
+  if(!password||password.length<6){toast('error','خطأ','كلمة المرور 6 أحرف على الأقل');return;}
   if(role==='trainer'&&!subject){toast('error','خطأ','اختر المادة التدريبية');return;}
   // تأكيد إضافي لدور مدير النظام
   if(role==='admin'&&!curUsrId){
@@ -2947,7 +2724,7 @@ function saveUser(){
     // Edit existing
     const idx=USERS.findIndex(u=>u.id===curUsrId);
     if(idx>=0){
-      const updated={...USERS[idx],name,username,role,subject,phone,notes,updatedAt:Date.now()};
+      const updated={...USERS[idx],name,username,password,role,subject,phone,notes,updatedAt:Date.now()};
       showFbLoading(true);
       fsSet(COL.users, curUsrId, updated).then(ok=>{
         showFbLoading(false);
@@ -2960,30 +2737,21 @@ function saveUser(){
     }
   } else {
     // Add new
-    const newUser={id:'u'+Date.now(),name,username,role,subject,phone,notes,createdAt:Date.now()};
+    const newUser={id:'u'+Date.now(),name,username,password,role,subject,phone,notes,createdAt:Date.now()};
     const roleLabel={trainer:'المدرب',coord:'المنسق',admin:'مدير النظام'}[role]||role;
-    const fakeEmail=username.replace(/[^a-zA-Z0-9._-]/g,'')+'@tasarrob.local';
+    // إنشاء حساب Firebase Auth + Firestore
+    const fakeEmail=username.replace(/[^a-zA-Z0-9]/g,'')+'@tasarrob.local';
     showFbLoading(true);
     (async()=>{
-      let secondaryApp=null;
-      try{
-        // استخدام تطبيق Auth ثانوي يمنع تسجيل خروج المدير عند إنشاء مستخدم جديد.
-        secondaryApp=firebase.initializeApp(firebaseConfig,'userProvision_'+Date.now());
-        const secondaryAuth=secondaryApp.auth();
-        const cred=await secondaryAuth.createUserWithEmailAndPassword(fakeEmail,password);
-        newUser.authUid=cred.user.uid;
-        const ok=await fsSet(COL.users,newUser.id,newUser);
-        if(!ok){try{await cred.user.delete();}catch(_){};return;}
-        USERS.push(newUser);
-        toast('success','تم الإنشاء',`تم إنشاء حساب ${roleLabel} ${name}`);
-        closeM('usrModal'); rndrUsers();
-      }catch(e){
-        console.error('User provisioning failed:',e);
-        toast('error','فشل إنشاء الحساب',e.code==='auth/email-already-in-use'?'اسم الدخول مرتبط بحساب موجود بالفعل':(e.message||'تعذر إنشاء الحساب'));
-      }finally{
-        try{await secondaryApp?.delete();}catch(_){}
-        showFbLoading(false);
-      }
+      try{ await auth.createUserWithEmailAndPassword(fakeEmail,password); }
+      catch(e){ console.warn('Auth skip:',e.code); }
+      const ok=await fsSet(COL.users, newUser.id, newUser);
+      showFbLoading(false);
+      if(!ok) return;
+      USERS.push(newUser);
+      toast('success','تم الإنشاء',`تم إنشاء حساب ${roleLabel} ${name}`);
+      setTimeout(()=>toast('info','بيانات الدخول',`اسم الدخول: ${username} — كلمة المرور: ${password}`,6000),500);
+      closeM('usrModal'); rndrUsers();
     })();
     return;
   }
@@ -2995,14 +2763,14 @@ function saveUser(){
 function delUser(id){
   const u=USERS.find(x=>x.id===id);
   if(!u)return;
-  if(!confirm(`حذف حساب: ${escapeHTML(u.name)} (@${escapeHTML(u.username)})؟\nلن يتمكن من الدخول للمنصة بعد الحذف.`))return;
+  if(!confirm(`حذف حساب: ${u.name} (@${u.username})؟\nلن يتمكن من الدخول للمنصة بعد الحذف.`))return;
   showFbLoading(true);
   fsDel(COL.users, id).then(ok=>{
     showFbLoading(false);
     if(!ok) return;
     USERS=USERS.filter(x=>x.id!==id);
     rndrUsers();
-    toast('success','تم الحذف',`تم حذف حساب ${escapeHTML(u.name)}`);
+    toast('success','تم الحذف',`تم حذف حساب ${u.name}`);
   });
 }
 
@@ -3191,7 +2959,7 @@ function restoreSession() {
     const saved = localStorage.getItem('ts_session');
     if (!saved) return false;
     const sess = JSON.parse(saved);
-    if (!sess || !sess.role || !sess.name || !['admin','trainer','coord'].includes(sess.role)) return false;
+    if (!sess || !sess.role || !sess.name) return false;
     // تحقق من صلاحية الجلسة (24 ساعة للمستخدمين العاديين، 7 أيام للمدير)
     const maxAge = sess.role==='admin' ? 7*24*60*60*1000 : 24*60*60*1000;
     if(Date.now() - (sess.ts||0) > maxAge) {
@@ -3231,56 +2999,40 @@ window.addEventListener('load',()=>{
   window._fbReady=true;
   window._fbReadyCallbacks.forEach(fn=>fn());
 
+  // ── حاول استعادة الجلسة ──────────────────────────────────
   const hasSession = restoreSession();
 
-  // افتح التطبيق فوراً: لا ننتظر Firebase ولا نضع طبقة تحميل فوق الواجهة.
-  requestAnimationFrame(()=>{
+  setTimeout(()=>{
     document.getElementById('loader').classList.add('out');
 
-    if (!hasSession) {
-      document.getElementById('fbLoading').classList.add('hide');
-      document.getElementById('login-page').style.display='flex';
-      return;
-    }
-
-    document.getElementById('login-page').style.display='none';
-    document.getElementById('app').classList.add('on');
-    document.getElementById('fbLoading').classList.add('hide');
-
-    // ابدأ المزامنة في الخلفية بعد ظهور الواجهة مباشرة.
-    const startupSync = async ()=>{
-      try {
-        if(!auth.currentUser) await waitForAuthReady(2500);
-        await loadAllData();
-        filteredStudents = allStudents.filter(s=>s.status===curFilter);
-        initAll();
-
-        // تنظيف البيانات التجريبية القديمة في الخلفية فقط، وبعد تحميل البيانات الحقيقية.
-        const cleaned = await purgeLegacyDemoData();
-        if(cleaned){
-          await loadAllData();
+    if (hasSession) {
+      // ← المستخدم كان مسجلاً — حمّل البيانات مباشرة
+      document.getElementById('fbLoading').classList.remove('hide');
+      // محاولة مع retry تلقائي
+      const tryLoad = (attempt=1) => {
+        loadAllData().then(()=>{
+          showFbLoading(false);
           filteredStudents = allStudents.filter(s=>s.status===curFilter);
           initAll();
-        }
-      } catch(e) {
-        console.warn('Startup sync failed:',e);
-        // لا نعرض طبقة انتظار؛ أبقِ الواجهة سريعة وأظهر تنبيهًا غير حاجب.
-        toast('warn','المزامنة','تعذّر تحديث البيانات من الخادم حالياً. يمكنك المحاولة من زر التحديث.');
-      }
-    };
-
-    setTimeout(startupSync,0);
-  });
+        }).catch(e=>{
+          if(attempt < 3) {
+            setTimeout(()=>tryLoad(attempt+1), 1500*attempt);
+          } else {
+            showFbLoading(false);
+            allStudents=[]; filteredStudents=[];
+            initAll();
+            toast('warn','تنبيه','تعذّر تحميل البيانات — يعمل بدون اتصال');
+          }
+        });
+      };
+      tryLoad();
+    } else {
+      // ← لا جلسة — اعرض صفحة الدخول
+      showFbLoading(false);
+      document.getElementById('login-page').style.display='flex';
+    }
+  }, 1400);
 });
-
-// ── تسجيل Service Worker (تفعيل PWA/العمل دون اتصال) ──────────
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('./sw.js').catch(e=>{
-      console.warn('SW registration failed:', e);
-    });
-  });
-}
 </script>
 </body>
 </html>
