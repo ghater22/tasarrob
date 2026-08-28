@@ -833,11 +833,12 @@ const firebaseConfig = {
     } catch(e){
       console.error('Firestore fsGet error:',e.code, e.message);
       if(e.code==='permission-denied')
-        toast('error','رفض الوصول','ليست لديك صلاحية قراءة هذه البيانات');
+        toast('error','خطأ في الصلاحيات','لا توجد صلاحية لقراءة البيانات من Firestore');
       else if(e.code==='unavailable' || e.code==='network-request-failed')
-        toast('error','لا يوجد اتصال','تعذر الوصول إلى قاعدة البيانات حالياً');
+        toast('error','لا يوجد اتصال','تعذّر الاتصال بقاعدة البيانات');
       else
-        toast('error','خطأ في القراءة', e.message||'تعذر تحميل البيانات');
+        toast('error','خطأ في قاعدة البيانات',e.message||'تعذّر تحميل البيانات');
+      // لا نعيد [] عند فشل القراءة حتى لا تختفي البيانات من الواجهة مؤقتاً.
       throw e;
     }
   }
@@ -2044,7 +2045,7 @@ function editSt(idx){
   if(IS_TRAINER()) note.classList.add('show'); else note.classList.remove('show');
   openModal('stModal');
 }
-function saveSt(){
+async function saveSt(){
   if(IS_COORD()){toast('warn','صلاحية','أنت في وضع اطلاع فقط');return;}
   const name=document.getElementById('m_name').value.trim();
   const id=document.getElementById('m_id').value.trim();
@@ -2076,23 +2077,32 @@ function saveSt(){
 
   showFbLoading(true);
   console.log('Saving student to Firestore:', stId, obj);
-  fsSet(COL.students, stId, obj).then(ok=>{
-    showFbLoading(false);
-    console.log('Firestore save result:', ok);
+  try {
+    const ok = await fsSet(COL.students, stId, obj);
     if(!ok){
-      toast('error','خطأ في الحفظ','تعذّر حفظ بيانات الطالب — تحقق من اتصال Firebase');
+      toast('error','خطأ في الحفظ','تعذّر حفظ بيانات المتدرب — تحقق من اتصال Firebase وقواعد Firestore');
       return;
     }
-    if(curIdx>=0){allStudents[curIdx]=obj;toast('success','تم الحفظ','تم تعديل بيانات الطالب ✓');}
-    else{allStudents.unshift(obj);toast('success','تمت الإضافة','تم إضافة الطالب وحفظه ✓');}
+    // تحقق فعلي من وجود السجل قبل إغلاق النموذج.
+    const verifySnap = await COL.students.doc(String(stId)).get();
+    if(!verifySnap.exists) throw new Error('تم إرسال الحفظ ولكن لم يتم العثور على السجل في Firestore');
+    const savedObj = {id: verifySnap.id, ...verifySnap.data()};
+    if(curIdx>=0){
+      allStudents[curIdx]=savedObj;
+      toast('success','تم الحفظ','تم تحديث بيانات المتدرب وحفظها في قاعدة البيانات ✓');
+    } else {
+      allStudents.unshift(savedObj);
+      toast('success','تمت الإضافة','تمت إضافة المتدرب وحفظ بياناته بشكل دائم ✓');
+    }
     applyF(); closeM('stModal');
     document.getElementById('nb0').textContent=allStudents.filter(s=>s.status==='deprived').length;
     updKPIs(); rndrDashTbl(); rndrAlerts();
-  }).catch(e=>{
-    showFbLoading(false);
+  } catch(e) {
     console.error('saveSt Firestore error:', e);
-    toast('error','خطأ Firebase', e.message||'تعذّر الحفظ');
-  });
+    toast('error','فشل الحفظ', e.message||'تعذّر حفظ بيانات المتدرب');
+  } finally {
+    showFbLoading(false);
+  }
 }
 function viewSt(idx){
   curIdx=idx; const s=allStudents[idx];
