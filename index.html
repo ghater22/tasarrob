@@ -1925,7 +1925,7 @@ function rndrDashTbl(){
     const bc=pct>=CFG.deprivationPct?'var(--red)':pct>=(CFG.deprivationPct*.75)?'var(--amber)':'var(--green)';
     return `<tr>
       <td><div class="scell"><div class="sav" style="background:${s.deptColor}">${s.name[0]}</div>
-        <div><div class="sname">${s.name}</div><div class="sid">${s.id}</div></div></div></td>
+        <div><div class="sname">${s.name}</div><div class="sid">${s.trainingId||s.id}</div></div></div></td>
       <td><span class="dc ${s.deptCls}">${s.dept}</span></td>
       <td style="font-size:.76rem;color:var(--muted)">${s.subject}</td>
       <td><strong style="color:${bc};font-size:.82rem">${pct}%</strong></td>
@@ -2014,7 +2014,7 @@ function rndrStudents(){
     const canMgr=CAN_EDIT(s);
     return`<tr>
       <td style="color:var(--muted);font-size:.72rem">${start+i+1}</td>
-      <td><div class="scell"><div class="sav" style="background:${s.deptColor}">${s.name[0]}</div><div><div class="sname">${s.name}</div><div class="sid">${s.id}</div></div></div></td>
+      <td><div class="scell"><div class="sav" style="background:${s.deptColor}">${s.name[0]}</div><div><div class="sname">${s.name}</div><div class="sid">${s.trainingId||s.id}</div></div></div></td>
       <td class="col-hide-mobile"><span class="dc ${s.deptCls}">${s.dept}</span></td>
       <td class="col-hide-mobile" style="font-size:.76rem;color:var(--muted)">${s.subject}</td>
       <td><div style="display:flex;align-items:center;gap:4px"><div class="abs-bar"><div class="abs-fill" style="width:${Math.min(pct,100)}%;background:${bc}"></div></div><strong style="color:${bc};font-size:.8rem">${pct}٪</strong></div></td>
@@ -2110,7 +2110,7 @@ function editSt(idx){
   curIdx=idx;
   document.getElementById('stMttl').textContent='تعديل بيانات الطالب';
   document.getElementById('m_name').value=s.name;
-  document.getElementById('m_id').value=s.id;
+  document.getElementById('m_id').value=s.trainingId||s.id;
   document.getElementById('m_spec').value='';
   document.getElementById('m_notes').value=s.notes||'';
   document.getElementById('m_status').value=s.status;
@@ -2158,8 +2158,11 @@ function saveSt(){
     pledge2:{date:document.getElementById('m_pledge2_date')?.value||'',done:document.getElementById('m_pledge2_done')?.checked||false},
     deprivationCount: curIdx>=0?(allStudents[curIdx].deprivationCount||0):0
   };
+  // الرقم التدريبي المُدخَل هو obj.trainingId
+  // مفتاح Firestore = stId (ثابت لا يتغير)
   const stId = curIdx>=0 ? allStudents[curIdx].id : 'st_'+Date.now();
   obj.id = stId;
+  obj.trainingId = id.trim()||stId; // الرقم التدريبي الحقيقي المُدخَل
   obj.createdAt = curIdx>=0 ? (allStudents[curIdx].createdAt||Date.now()) : Date.now();
   obj.updatedAt = Date.now();
   obj.updatedAt = Date.now();
@@ -2570,7 +2573,7 @@ function inlineIdSearch(val) {
   clearTimeout(_isdTimer);
   _isdTimer = setTimeout(() => {
     const results = allStudents.filter(s =>
-      s.id.includes(q) || s.name.includes(q)
+      (s.trainingId||s.id).includes(q) || s.name.includes(q)
     ).slice(0, 5);
 
     if(!results.length) {
@@ -2590,7 +2593,7 @@ function inlineIdSearch(val) {
         </div>
         <div class="isd-info">
           <div class="isd-name">${s.name}</div>
-          <div class="isd-meta">${s.id} · ${s.dept||'—'}</div>
+          <div class="isd-meta">${s.trainingId||s.id} · ${s.dept||'—'}</div>
         </div>
         <span class="isd-badge ${badgeCls}">${badgeTxt}</span>
       </div>`;
@@ -2616,7 +2619,7 @@ function fillFromSearch(id, name) {
   if(drop) drop.style.display = 'none';
 
   // ابحث عن الطالب في القائمة
-  const idx = allStudents.findIndex(s => s.id === id);
+  const idx = allStudents.findIndex(s => (s.trainingId||s.id) === id || s.id === id);
   if(idx < 0) {
     // مجرد ملء الحقل
     document.getElementById('m_id').value = id;
@@ -2647,7 +2650,7 @@ function chkDupId(val) {
   if(!v){ warn.style.display='none'; return; }
   // لا نتحقق إذا كنا في وضع التعديل على نفس الطالب
   const editingId = curIdx>=0 ? allStudents[curIdx]?.id : null;
-  const dup = allStudents.some(s => s.id===v && s.id!==editingId);
+  const dup = allStudents.some(s => (s.trainingId||s.id)===v && (s.trainingId||s.id)!==(editingId));
   warn.style.display = dup ? 'block' : 'none';
 }
 
@@ -2666,7 +2669,7 @@ function doIdSearch(q){
 
   // البحث في جميع الطلاب (محرومين وغير محرومين)
   const results=allStudents.filter(s=>
-    s.id.includes(q)||s.name.includes(q)
+    (s.trainingId||s.id).includes(q)||s.name.includes(q)
   );
 
   if(!results.length){
@@ -2692,7 +2695,7 @@ function doIdSearch(q){
         <div class="sav" style="width:46px;height:46px;font-size:1.1rem;background:${s.deptColor};flex-shrink:0">${s.name[0]}</div>
         <div style="flex:1">
           <div style="font-weight:800;font-size:.95rem;color:var(--navy)">${s.name}</div>
-          <div style="font-size:.76rem;color:var(--muted);margin-top:1px">الرقم: <strong>${s.id}</strong> · ${s.dept}</div>
+          <div style="font-size:.76rem;color:var(--muted);margin-top:1px">الرقم: <strong>${s.trainingId||s.id}</strong> · ${s.dept}</div>
           <div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">
             <span class="sbadge ${STATUS_CSS[s.status]}">${STATUS_MAP[s.status]}</span>
             ${depCount>1||depHistory>1?`<span style="background:rgba(239,68,68,.12);color:var(--red);border:1px solid rgba(239,68,68,.25);padding:2px 8px;border-radius:20px;font-size:.69rem;font-weight:700">⚠️ تكرر الحرمان ${Math.max(depCount,depHistory)} مرة</span>`:''}
